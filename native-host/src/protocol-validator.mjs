@@ -37,13 +37,13 @@ function normalizeObjectRequest(request, options) {
 
 function normalizeLegacyRequest(text, options) {
   const requestId = matchFirst(text, /AUTO_BRIDGE_REQUEST_ID\s*=\s*([^\r\n]+)/i) ?? 'AUTO';
-  const mode = matchFirst(text, /\bMODE\s*=\s*(READ_ONLY|SAFE_CHANGE|PROJECT_CHANGE|EXECUTION_LOCKED)\b/i) ?? 'READ_ONLY';
+  const mode = matchFirst(text, /\bMODE\s*=\s*(READ_ONLY|SAFE_CHANGE_PREVIEW|SAFE_CHANGE|PROJECT_CHANGE|EXECUTION_LOCKED)\b/i) ?? 'READ_ONLY';
   const targetHost = matchFirst(text, /\bTARGET_HOST\s*=\s*([A-Za-z0-9_.-]+)/i) ?? options.defaultTargetHost;
   const taskName = matchFirst(text, /BeginTask\.ps1['" ]+([^'"\r\n]+)/i) ?? 'LegacyAutoBridgeTask';
 
   const normalized = {
     protocol: REQUEST_PROTOCOL,
-    requestId: requestId.replace(/^['"]|['"]$/g, '').trim(),
+    requestId: requestId.replace(/^[']|[']$/g, '').replace(/^["]|["]$/g, '').trim(),
     mode: mode.toUpperCase(),
     targetHost,
     taskName,
@@ -81,16 +81,16 @@ function validateNormalized(request, options) {
     throw block('HOST_MISMATCH', `Target host ${request.targetHost} does not match ${localHost}.`);
   }
 
-  if (!request.body && request.mode !== 'EXECUTION_LOCKED' && request.mode !== 'SAFE_CHANGE') {
+  if (!request.body && request.mode !== 'EXECUTION_LOCKED' && request.mode !== 'SAFE_CHANGE' && request.mode !== 'SAFE_CHANGE_PREVIEW') {
     throw block('EMPTY_BODY', 'Request body is empty.');
   }
 
-  if (request.mode === 'SAFE_CHANGE') {
+  if (request.mode === 'SAFE_CHANGE' || request.mode === 'SAFE_CHANGE_PREVIEW') {
     if (!request.approvedProjectRoot) {
-      throw block('MISSING_APPROVED_PROJECT_ROOT', 'SAFE_CHANGE requires approvedProjectRoot.');
+      throw block('MISSING_APPROVED_PROJECT_ROOT', `${request.mode} requires approvedProjectRoot.`);
     }
     if (!Array.isArray(request.changes) || request.changes.length === 0) {
-      throw block('MISSING_CHANGES', 'SAFE_CHANGE requires a non-empty changes array.');
+      throw block('MISSING_CHANGES', `${request.mode} requires a non-empty changes array.`);
     }
   }
 }

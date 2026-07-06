@@ -9,6 +9,7 @@
     "check:schemas": "node scripts/check-schemas.mjs",
     "check:powershell": "pwsh -NoProfile -File scripts/check-powershell.ps1",
     "smoke:readonly": "node scripts/smoke-readonly-request.mjs",
+    "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },
   "engines": {

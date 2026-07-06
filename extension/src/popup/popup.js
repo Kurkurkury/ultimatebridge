@@ -1,4 +1,5 @@
 import {
+  buildManualSendGuardText,
   buildPreviewApplyHint,
   buildSafeChangeApplyBlock,
   findLatestPreviewQueueItem,
@@ -8,6 +9,7 @@ import {
 import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
 
 const status = document.getElementById('status');
+const manualSendGuard = document.getElementById('manual-send-guard');
 const queue = document.getElementById('queue');
 const previewApply = document.getElementById('preview-apply');
 const safeChangeBlock = document.getElementById('safe-change-block');
@@ -27,6 +29,10 @@ const clearUploadPlan = document.getElementById('clear-upload-plan');
 
 function writeStatus(value) {
   status.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function writeManualSendGuard(value = buildManualSendGuardText()) {
+  manualSendGuard.textContent = value;
 }
 
 function writeQueue(value) {
@@ -94,6 +100,7 @@ async function showLatestPreviewApplyRequirement() {
 async function showLatestSafeChangeApplyBlock() {
   const previewItem = await getLatestPreviewItem();
   const block = buildSafeChangeApplyBlock(previewItem);
+  writeManualSendGuard();
   writeSafeChangeBlock(block);
   return block;
 }
@@ -159,6 +166,7 @@ clearQueue.addEventListener('click', async () => {
     writePreviewApply('No preview apply requirement available.');
     writeSafeChangeBlock('No SAFE_CHANGE apply block prepared.');
     writeUploadPlan('No artifact upload plan prepared.');
+    writeManualSendGuard();
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
@@ -187,7 +195,7 @@ copyPreviewApply.addEventListener('click', async () => {
 buildSafeChange.addEventListener('click', async () => {
   try {
     await showLatestSafeChangeApplyBlock();
-    writeStatus('SAFE_CHANGE apply block prepared.');
+    writeStatus('SAFE_CHANGE apply block prepared for manual review only.');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }
@@ -197,7 +205,7 @@ copySafeChange.addEventListener('click', async () => {
   try {
     const block = await showLatestSafeChangeApplyBlock();
     await navigator.clipboard.writeText(block);
-    writeStatus('SAFE_CHANGE apply block copied to clipboard.');
+    writeStatus('SAFE_CHANGE apply block copied to clipboard for manual review only.');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }
@@ -207,7 +215,8 @@ insertSafeChange.addEventListener('click', async () => {
   try {
     const result = await insertLatestSafeChangeApplyBlock();
     if (result.ok) {
-      writeStatus(`SAFE_CHANGE apply block inserted into chat input. It was NOT submitted.\nhash=${result.hash}`);
+      writeManualSendGuard();
+      writeStatus(`SAFE_CHANGE apply block inserted into chat input for manual review only. It was NOT submitted.\nhash=${result.hash}`);
     } else {
       writeStatus(`Could not insert SAFE_CHANGE apply block.\nreason=${result.reason ?? 'UNKNOWN'}\n${result.message ?? ''}`);
     }
@@ -249,5 +258,6 @@ clearUploadPlan.addEventListener('click', async () => {
   }
 });
 
+writeManualSendGuard();
 loadQueue().catch((error) => writeQueue(`ERROR: ${error.message}`));
 loadUploadPlan().catch((error) => writeUploadPlan(`ERROR: ${error.message}`));

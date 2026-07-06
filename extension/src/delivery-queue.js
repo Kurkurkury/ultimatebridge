@@ -1,5 +1,6 @@
 export const DELIVERY_QUEUE_KEY = 'ultimatebridgeDeliveryQueue';
 export const LAST_DELIVERY_KEY = 'ultimatebridgeLastDelivery';
+export const MANUAL_REVIEW_REQUIRED = 'USER_MUST_REVIEW_AND_SEND_MANUALLY';
 
 export function buildDeliveryQueueItem(nativeResponse, now = new Date().toISOString()) {
   const response = nativeResponse?.response ?? nativeResponse ?? {};
@@ -131,12 +132,24 @@ export function buildSafeChangeApplyBlock(item, options = {}) {
     requestId: options.requestId ?? 'APPLY_FROM_PREVIEW',
     mode: 'SAFE_CHANGE',
     taskName: options.taskName ?? 'ApplyFromPreview',
+    manualReviewRequired: true,
+    sendBehavior: MANUAL_REVIEW_REQUIRED,
+    sourcePreviewJobId: item.jobId,
     approvedProjectRoot: item.approvedProjectRoot,
     requiredPreviewHash: item.previewHash,
     changes: item.previewChanges
   };
 
   return JSON.stringify(request, null, 2);
+}
+
+export function buildManualSendGuardText() {
+  return [
+    'MANUAL SEND GUARD',
+    'The generated SAFE_CHANGE block is inserted for review only.',
+    'The extension must not submit it automatically.',
+    'Review the block yourself before sending.'
+  ].join('\n');
 }
 
 function firstLine(value) {

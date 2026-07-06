@@ -12,6 +12,8 @@ import {
   MANUAL_REVIEW_REQUIRED
 } from '../extension/src/delivery-queue.js';
 
+const PREVIEW_HASH = 'a'.repeat(64);
+
 const nativeResponse = {
   ok: true,
   report: {
@@ -44,8 +46,8 @@ const previewNativeResponse = {
     status: 'OK',
     summary: [
       'SAFE_CHANGE_PREVIEW changes=1',
-      'previewHash=abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd',
-      'requiredPreviewHash=abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd',
+      `previewHash=${PREVIEW_HASH}`,
+      `requiredPreviewHash=${PREVIEW_HASH}`,
       'wouldWrite=true'
     ].join('\n')
   },
@@ -72,7 +74,8 @@ test('buildDeliveryQueueItem extracts delivery plan and uploadable artifacts', (
 test('buildDeliveryQueueItem extracts preview hash, request, and preview artifacts', () => {
   const item = buildDeliveryQueueItem(previewNativeResponse, '2026-01-01T00:00:00.000Z');
   assert.equal(item.isPreview, true);
-  assert.equal(item.previewHash, 'abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd');
+  assert.equal(item.previewHash, PREVIEW_HASH);
+  assert.equal(item.requiredPreviewHash, PREVIEW_HASH);
   assert.equal(item.requiredPreviewHash, item.previewHash);
   assert.equal(item.previewJsonPath, 'C:/run/safe-change-preview.json');
   assert.equal(item.previewDiffPath, 'C:/run/safe-change-preview.diff.txt');

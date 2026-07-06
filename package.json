@@ -10,6 +10,7 @@
     "check:powershell": "pwsh -NoProfile -File scripts/check-powershell.ps1",
     "smoke:readonly": "node scripts/smoke-readonly-request.mjs",
     "smoke:safe-change": "node scripts/smoke-safe-change.mjs",
+    "smoke:delivery": "node scripts/smoke-report-delivery.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

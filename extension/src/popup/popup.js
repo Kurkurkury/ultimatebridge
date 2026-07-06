@@ -1,5 +1,6 @@
 import {
   buildPreviewApplyHint,
+  buildSafeChangeApplyBlock,
   findLatestPreviewQueueItem,
   formatDeliveryQueue,
   formatDeliveryResponse
@@ -9,6 +10,7 @@ import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
 const status = document.getElementById('status');
 const queue = document.getElementById('queue');
 const previewApply = document.getElementById('preview-apply');
+const safeChangeBlock = document.getElementById('safe-change-block');
 const uploadPlan = document.getElementById('upload-plan');
 const runSmoke = document.getElementById('run-smoke');
 const detectLatest = document.getElementById('detect-latest');
@@ -16,6 +18,8 @@ const refreshQueue = document.getElementById('refresh-queue');
 const clearQueue = document.getElementById('clear-queue');
 const showPreviewApply = document.getElementById('show-preview-apply');
 const copyPreviewApply = document.getElementById('copy-preview-apply');
+const buildSafeChange = document.getElementById('build-safe-change');
+const copySafeChange = document.getElementById('copy-safe-change');
 const prepareUpload = document.getElementById('prepare-upload');
 const copyUploadPlan = document.getElementById('copy-upload-plan');
 const clearUploadPlan = document.getElementById('clear-upload-plan');
@@ -30,6 +34,10 @@ function writeQueue(value) {
 
 function writePreviewApply(value) {
   previewApply.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function writeSafeChangeBlock(value) {
+  safeChangeBlock.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeUploadPlan(value) {
@@ -70,12 +78,23 @@ async function loadUploadPlan() {
   writeUploadPlan(formatArtifactUploadPlan(response.uploadPlan));
 }
 
-async function showLatestPreviewApplyRequirement() {
+async function getLatestPreviewItem() {
   const currentQueue = await loadQueue();
-  const previewItem = findLatestPreviewQueueItem(currentQueue);
+  return findLatestPreviewQueueItem(currentQueue);
+}
+
+async function showLatestPreviewApplyRequirement() {
+  const previewItem = await getLatestPreviewItem();
   const hint = buildPreviewApplyHint(previewItem);
   writePreviewApply(hint);
   return hint;
+}
+
+async function showLatestSafeChangeApplyBlock() {
+  const previewItem = await getLatestPreviewItem();
+  const block = buildSafeChangeApplyBlock(previewItem);
+  writeSafeChangeBlock(block);
+  return block;
 }
 
 runSmoke.addEventListener('click', async () => {
@@ -117,6 +136,7 @@ clearQueue.addEventListener('click', async () => {
   if (response?.ok) {
     writeQueue('Delivery queue is empty.');
     writePreviewApply('No preview apply requirement available.');
+    writeSafeChangeBlock('No SAFE_CHANGE apply block prepared.');
     writeUploadPlan('No artifact upload plan prepared.');
     writeStatus('Delivery queue cleared.');
   } else {
@@ -138,6 +158,25 @@ copyPreviewApply.addEventListener('click', async () => {
     const hint = await showLatestPreviewApplyRequirement();
     await navigator.clipboard.writeText(hint);
     writeStatus('Preview apply requirement copied to clipboard.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+buildSafeChange.addEventListener('click', async () => {
+  try {
+    await showLatestSafeChangeApplyBlock();
+    writeStatus('SAFE_CHANGE apply block prepared.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copySafeChange.addEventListener('click', async () => {
+  try {
+    const block = await showLatestSafeChangeApplyBlock();
+    await navigator.clipboard.writeText(block);
+    writeStatus('SAFE_CHANGE apply block copied to clipboard.');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }

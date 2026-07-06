@@ -8,6 +8,7 @@ import { buildReport, routeReport } from './report-router.mjs';
 import { buildAttachmentManifest, writeAttachmentManifest } from './attachment-router.mjs';
 import { applySafeChanges } from './safe-change-applier.mjs';
 import { writeDeliveryArtifacts } from './delivery-planner.mjs';
+import { assertProjectRootAllowed } from './project-allowlist.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +37,7 @@ async function handleMessage(message) {
     }
 
     if (request.mode === 'SAFE_CHANGE') {
+      const allowlistResult = await assertProjectRootAllowed(request.approvedProjectRoot);
       const safeChangeResult = await applySafeChanges(request, job);
       const report = buildReport({
         requestId: request.requestId,
@@ -44,7 +46,7 @@ async function handleMessage(message) {
         exitCode: 0,
         timedOut: false,
         runFolder: job.runFolder,
-        summary: summarizeSafeChangeResult(safeChangeResult),
+        summary: summarizeSafeChangeResult(safeChangeResult, allowlistResult),
         attachments: []
       });
       return await finish(job, request, report, null, ['safe-change-result.json']);
@@ -144,10 +146,12 @@ function summarizeRunnerResult(result) {
   return lines.join('\n');
 }
 
-function summarizeSafeChangeResult(result) {
+function summarizeSafeChangeResult(result, allowlistResult) {
   return [
     `SAFE_CHANGE applied changes=${result.changes.length}`,
     `approvedProjectRoot=${result.approvedProjectRoot}`,
+    `allowlistPath=${allowlistResult.allowlistPath}`,
+    `allowlistMatchedRoot=${allowlistResult.matchedRoot}`,
     `backupRoot=${result.backupRoot}`,
     ...result.changes.map((change) => `${change.op} ${change.path} beforeBytes=${change.beforeBytes} afterBytes=${change.afterBytes}`)
   ].join('\n');

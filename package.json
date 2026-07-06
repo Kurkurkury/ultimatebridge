@@ -20,6 +20,7 @@
     "smoke:extension-preview-ui": "node scripts/smoke-extension-preview-ui.mjs",
     "smoke:browser-safe-change-builder": "node scripts/smoke-browser-safe-change-builder.mjs",
     "smoke:browser-apply-injection": "node scripts/smoke-browser-apply-block-injection.mjs",
+    "smoke:manual-send-guard": "node scripts/smoke-manual-send-guard.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

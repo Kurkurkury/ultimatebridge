@@ -7,6 +7,7 @@ import { runPowerShellScript } from './process-runner.mjs';
 import { buildReport, routeReport } from './report-router.mjs';
 import { buildAttachmentManifest, writeAttachmentManifest } from './attachment-router.mjs';
 import { applySafeChanges } from './safe-change-applier.mjs';
+import { previewSafeChanges } from './safe-change-preview.mjs';
 import { writeDeliveryArtifacts } from './delivery-planner.mjs';
 import { assertProjectRootAllowed } from './project-allowlist.mjs';
 
@@ -34,6 +35,25 @@ async function handleMessage(message) {
         summary: 'Execution locked by request mode. Request was parsed but not executed.'
       });
       return await finish(job, request, report);
+    }
+
+    if (request.mode === 'SAFE_CHANGE_PREVIEW') {
+      const allowlistResult = await assertProjectRootAllowed(request.approvedProjectRoot);
+      const previewResult = await previewSafeChanges(request, job);
+      const report = buildReport({
+        requestId: request.requestId,
+        jobId: job.jobId,
+        status: 'OK',
+        exitCode: 0,
+        timedOut: false,
+        runFolder: job.runFolder,
+        summary: summarizePreviewResult(previewResult, allowlistResult),
+        attachments: []
+      });
+      return await finish(job, request, report, null, [
+        'safe-change-preview.json',
+        'safe-change-preview.diff.txt'
+      ]);
     }
 
     if (request.mode === 'SAFE_CHANGE') {
@@ -148,6 +168,19 @@ function summarizeRunnerResult(result) {
   if (stdout) lines.push(`stdout=${stdout.slice(0, 1000)}`);
   if (stderr) lines.push(`stderr=${stderr.slice(0, 1000)}`);
   return lines.join('\n');
+}
+
+function summarizePreviewResult(result, allowlistResult) {
+  return [
+    `SAFE_CHANGE_PREVIEW changes=${result.changeCount}`,
+    `approvedProjectRoot=${result.approvedProjectRoot}`,
+    `allowlistPath=${allowlistResult.allowlistPath}`,
+    `allowlistMatchedRoot=${allowlistResult.matchedRoot}`,
+    `wouldWrite=${result.wouldWrite}`,
+    `previewJsonPath=${result.jsonPath}`,
+    `previewDiffPath=${result.diffPath}`,
+    ...result.previews.map((preview) => `${preview.op} ${preview.path} beforeBytes=${preview.beforeBytes} afterBytes=${preview.afterBytes} wouldChange=${preview.wouldChange}`)
+  ].join('\n');
 }
 
 function summarizeSafeChangeResult(result, allowlistResult) {

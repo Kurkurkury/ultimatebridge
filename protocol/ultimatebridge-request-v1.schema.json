@@ -14,6 +14,9 @@
     "body": { "type": "string" },
     "approvedProjectRoot": { "type": "string" },
     "requiredPreviewHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "manualReviewRequired": { "const": true },
+    "sendBehavior": { "const": "USER_MUST_REVIEW_AND_SEND_MANUALLY" },
+    "sourcePreviewJobId": { "type": "string" },
     "changes": {
       "type": "array",
       "items": {

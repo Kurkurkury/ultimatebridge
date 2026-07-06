@@ -8,6 +8,7 @@
     "test": "node --test tests/**/*.test.mjs",
     "check:schemas": "node scripts/check-schemas.mjs",
     "check:powershell": "pwsh -NoProfile -File scripts/check-powershell.ps1",
+    "smoke:readonly": "node scripts/smoke-readonly-request.mjs",
     "ci": "npm run check:schemas && npm test"
   },
   "engines": {

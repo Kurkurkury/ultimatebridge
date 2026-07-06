@@ -49,7 +49,11 @@ async function handleMessage(message) {
         summary: summarizeSafeChangeResult(safeChangeResult, allowlistResult),
         attachments: []
       });
-      return await finish(job, request, report, null, ['safe-change-result.json']);
+      return await finish(job, request, report, null, [
+        'safe-change-result.json',
+        'rollback-plan.json',
+        'rollback-restore-command.txt'
+      ]);
     }
 
     if (request.mode !== 'READ_ONLY') {
@@ -153,6 +157,8 @@ function summarizeSafeChangeResult(result, allowlistResult) {
     `allowlistPath=${allowlistResult.allowlistPath}`,
     `allowlistMatchedRoot=${allowlistResult.matchedRoot}`,
     `backupRoot=${result.backupRoot}`,
+    `rollbackPlanPath=${result.rollbackPlanPath}`,
+    `restoreCommand=${result.restoreCommand}`,
     ...result.changes.map((change) => `${change.op} ${change.path} beforeBytes=${change.beforeBytes} afterBytes=${change.afterBytes}`)
   ].join('\n');
 }

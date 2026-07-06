@@ -6,6 +6,7 @@ import {
   formatDeliveryQueue,
   formatDeliveryResponse
 } from '../delivery-queue.js';
+import { buildArtifactOpenPlan, formatArtifactOpenPlan } from '../artifact-open-plan.js';
 import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
 import { buildDiffViewerState, formatDiffViewerState } from '../diff-viewer.js';
 import { buildRoundtripPanelState, formatRoundtripPanelState } from '../roundtrip-proof.js';
@@ -16,6 +17,7 @@ const status = document.getElementById('status');
 const manualSendGuard = document.getElementById('manual-send-guard');
 const roundtripStatus = document.getElementById('roundtrip-status');
 const diffPreview = document.getElementById('diff-preview');
+const artifactOpenPlan = document.getElementById('artifact-open-plan');
 const queue = document.getElementById('queue');
 const previewApply = document.getElementById('preview-apply');
 const safeChangeBlock = document.getElementById('safe-change-block');
@@ -29,6 +31,8 @@ const copyPreviewApply = document.getElementById('copy-preview-apply');
 const buildSafeChange = document.getElementById('build-safe-change');
 const copySafeChange = document.getElementById('copy-safe-change');
 const insertSafeChange = document.getElementById('insert-safe-change');
+const showArtifactOpenPlan = document.getElementById('show-artifact-open-plan');
+const copyArtifactOpenPlan = document.getElementById('copy-artifact-open-plan');
 const prepareUpload = document.getElementById('prepare-upload');
 const copyUploadPlan = document.getElementById('copy-upload-plan');
 const clearUploadPlan = document.getElementById('clear-upload-plan');
@@ -47,6 +51,10 @@ function writeRoundtripStatus(value) {
 
 function writeDiffPreview(value) {
   diffPreview.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function writeArtifactOpenPlan(value) {
+  artifactOpenPlan.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeQueue(value) {
@@ -105,18 +113,26 @@ function updateDiffPreview(currentQueue) {
   return state;
 }
 
+function updateArtifactOpenPlan(currentQueue) {
+  const plan = buildArtifactOpenPlan(currentQueue);
+  writeArtifactOpenPlan(formatArtifactOpenPlan(plan));
+  return plan;
+}
+
 async function loadQueue() {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_DELIVERY_QUEUE' });
   if (!response?.ok) {
     writeQueue(response?.error ?? 'Could not load delivery queue.');
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
+    updateArtifactOpenPlan([]);
     return [];
   }
   const currentQueue = response.queue ?? [];
   writeQueue(formatDeliveryQueue(currentQueue));
   await updateRoundtripPanel(currentQueue);
   updateDiffPreview(currentQueue);
+  updateArtifactOpenPlan(currentQueue);
   return currentQueue;
 }
 
@@ -147,6 +163,14 @@ async function showLatestSafeChangeApplyBlock() {
   writeManualSendGuard();
   writeSafeChangeBlock(block);
   return block;
+}
+
+async function showLatestArtifactOpenPlan() {
+  const currentQueue = await loadQueue();
+  const plan = buildArtifactOpenPlan(currentQueue);
+  const text = formatArtifactOpenPlan(plan);
+  writeArtifactOpenPlan(text);
+  return text;
 }
 
 async function insertLatestSafeChangeApplyBlock() {
@@ -214,6 +238,7 @@ clearQueue.addEventListener('click', async () => {
     writeManualSendGuard();
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
+    updateArtifactOpenPlan([]);
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
@@ -270,6 +295,25 @@ insertSafeChange.addEventListener('click', async () => {
     } else {
       writeStatus(`Could not insert SAFE_CHANGE apply block.\nreason=${result.reason ?? 'UNKNOWN'}\n${result.message ?? ''}`);
     }
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+showArtifactOpenPlan.addEventListener('click', async () => {
+  try {
+    await showLatestArtifactOpenPlan();
+    writeStatus('Artifact open/upload plan loaded.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copyArtifactOpenPlan.addEventListener('click', async () => {
+  try {
+    const text = await showLatestArtifactOpenPlan();
+    await navigator.clipboard.writeText(text);
+    writeStatus('Artifact open/upload plan copied to clipboard.');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }

@@ -1,0 +1,9 @@
+{
+  "name": "com.ultimatebridge.host",
+  "description": "UltimateBridge Native Host",
+  "path": "C:\\Path\\To\\ultimatebridge\\scripts\\native-host-wrapper.cmd",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://REPLACE_WITH_EXTENSION_ID/"
+  ]
+}

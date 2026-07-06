@@ -6,6 +6,7 @@ import { createJob } from './job-spool.mjs';
 import { runPowerShellScript } from './process-runner.mjs';
 import { buildReport, routeReport } from './report-router.mjs';
 import { buildAttachmentManifest, writeAttachmentManifest } from './attachment-router.mjs';
+import { applySafeChanges } from './safe-change-applier.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +34,21 @@ async function handleMessage(message) {
       return await finish(job, request, report);
     }
 
+    if (request.mode === 'SAFE_CHANGE') {
+      const safeChangeResult = await applySafeChanges(request, job);
+      const report = buildReport({
+        requestId: request.requestId,
+        jobId: job.jobId,
+        status: 'OK',
+        exitCode: 0,
+        timedOut: false,
+        runFolder: job.runFolder,
+        summary: summarizeSafeChangeResult(safeChangeResult),
+        attachments: []
+      });
+      return await finish(job, request, report, null, ['safe-change-result.json']);
+    }
+
     if (request.mode !== 'READ_ONLY') {
       const report = buildReport({
         requestId: request.requestId,
@@ -41,7 +57,7 @@ async function handleMessage(message) {
         exitCode: 0,
         timedOut: false,
         runFolder: job.runFolder,
-        summary: `Mode ${request.mode} is not implemented in the read-only MVP flow.`
+        summary: `Mode ${request.mode} is not implemented.`
       });
       return await finish(job, request, report);
     }
@@ -76,11 +92,14 @@ async function handleMessage(message) {
   }
 }
 
-async function finish(job, request, report, runnerResult = null) {
+async function finish(job, request, report, runnerResult = null, extraRelativeArtifacts = []) {
   const reportPath = path.join(job.runFolder, 'ultimatebridge-runner-report.json');
   await fs.writeFile(reportPath, JSON.stringify(report, null, 2), 'utf8');
 
   const staged = [reportPath];
+  for (const artifact of extraRelativeArtifacts) {
+    staged.push(path.join(job.runFolder, artifact));
+  }
   if (runnerResult) {
     staged.push(path.join(job.runFolder, 'runner-result.json'));
     staged.push(path.join(job.runFolder, 'stdout.txt'));
@@ -114,6 +133,15 @@ function summarizeRunnerResult(result) {
   if (stdout) lines.push(`stdout=${stdout.slice(0, 1000)}`);
   if (stderr) lines.push(`stderr=${stderr.slice(0, 1000)}`);
   return lines.join('\n');
+}
+
+function summarizeSafeChangeResult(result) {
+  return [
+    `SAFE_CHANGE applied changes=${result.changes.length}`,
+    `approvedProjectRoot=${result.approvedProjectRoot}`,
+    `backupRoot=${result.backupRoot}`,
+    ...result.changes.map((change) => `${change.op} ${change.path} beforeBytes=${change.beforeBytes} afterBytes=${change.afterBytes}`)
+  ].join('\n');
 }
 
 function attachNativeStdio() {

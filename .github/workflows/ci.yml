@@ -1,0 +1,23 @@
+name: UltimateBridge CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        run: npm install --ignore-scripts
+      - name: Validate schemas
+        run: npm run check:schemas
+      - name: Run Node tests
+        run: npm test
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/check-powershell.ps1

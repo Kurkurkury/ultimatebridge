@@ -16,16 +16,30 @@ TARGET_HOST=${process.env.COMPUTERNAME ?? process.env.HOSTNAME ?? 'SPEIDELBASE'}
   assert.ok(response.manifest.items.some((item) => item.path.endsWith('ultimatebridge-runner-report.json')));
 });
 
-test('host blocks non-read-only modes in MVP', async () => {
+test('host blocks PROJECT_CHANGE mode until implemented', async () => {
   const response = await handleMessage({
     body: {
       protocol: 'ULTIMATEBRIDGE_REQUEST_V1',
       requestId: 'AUTO',
-      mode: 'SAFE_CHANGE',
+      mode: 'PROJECT_CHANGE',
       body: 'write something'
     }
   });
 
   assert.equal(response.ok, false);
   assert.equal(response.report.status, 'BLOCKED');
+});
+
+test('host blocks SAFE_CHANGE without approvedProjectRoot before job execution', async () => {
+  const response = await handleMessage({
+    body: {
+      protocol: 'ULTIMATEBRIDGE_REQUEST_V1',
+      requestId: 'AUTO',
+      mode: 'SAFE_CHANGE',
+      changes: [{ op: 'writeTextFile', path: 'x.txt', content: 'x' }]
+    }
+  });
+
+  assert.equal(response.ok, false);
+  assert.equal(response.code, 'MISSING_APPROVED_PROJECT_ROOT');
 });

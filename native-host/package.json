@@ -1,0 +1,14 @@
+{
+  "name": "ultimatebridge-native-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/host.mjs",
+  "scripts": {
+    "start": "node src/host.mjs",
+    "health": "node src/healthcheck.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

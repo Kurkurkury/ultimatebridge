@@ -15,6 +15,7 @@
     "smoke:confirmed-plan": "node scripts/smoke-confirmed-plan.mjs",
     "smoke:project-roots": "node scripts/smoke-project-roots.mjs",
     "smoke:rollback": "node scripts/smoke-rollback.mjs",
+    "smoke:preview-diff": "node scripts/smoke-preview-diff.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

@@ -22,6 +22,7 @@
     "smoke:browser-apply-injection": "node scripts/smoke-browser-apply-block-injection.mjs",
     "smoke:manual-send-guard": "node scripts/smoke-manual-send-guard.mjs",
     "smoke:full-browser-roundtrip": "node scripts/smoke-full-browser-preview-apply-roundtrip.mjs",
+    "smoke:browser-roundtrip-panel": "node scripts/smoke-browser-roundtrip-ui-panel.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

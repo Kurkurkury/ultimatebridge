@@ -26,7 +26,9 @@ function normalizeObjectRequest(request, options) {
     targetHost: request.targetHost,
     taskName: request.taskName ?? 'UntitledTask',
     createdBy: request.createdBy ?? 'chatgpt',
-    body: String(request.body ?? '')
+    body: typeof request.body === 'string' ? request.body : JSON.stringify(request.body ?? ''),
+    approvedProjectRoot: request.approvedProjectRoot,
+    changes: request.changes
   };
 
   validateNormalized(normalized, options);
@@ -79,8 +81,17 @@ function validateNormalized(request, options) {
     throw block('HOST_MISMATCH', `Target host ${request.targetHost} does not match ${localHost}.`);
   }
 
-  if (!request.body && request.mode !== 'EXECUTION_LOCKED') {
+  if (!request.body && request.mode !== 'EXECUTION_LOCKED' && request.mode !== 'SAFE_CHANGE') {
     throw block('EMPTY_BODY', 'Request body is empty.');
+  }
+
+  if (request.mode === 'SAFE_CHANGE') {
+    if (!request.approvedProjectRoot) {
+      throw block('MISSING_APPROVED_PROJECT_ROOT', 'SAFE_CHANGE requires approvedProjectRoot.');
+    }
+    if (!Array.isArray(request.changes) || request.changes.length === 0) {
+      throw block('MISSING_CHANGES', 'SAFE_CHANGE requires a non-empty changes array.');
+    }
   }
 }
 

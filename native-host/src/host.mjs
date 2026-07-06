@@ -117,18 +117,33 @@ function summarizeRunnerResult(result) {
 }
 
 function attachNativeStdio() {
-  process.stdin.on('readable', async () => {
-    let header;
-    while ((header = process.stdin.read(4)) !== null) {
-      const length = header.readUInt32LE(0);
-      const body = process.stdin.read(length);
-      if (!body) return;
+  let buffer = Buffer.alloc(0);
+  let busy = false;
 
-      const input = JSON.parse(body.toString('utf8'));
-      const output = await handleMessage(input);
-      writeNativeMessage(output);
+  process.stdin.on('data', (chunk) => {
+    buffer = Buffer.concat([buffer, chunk]);
+    if (!busy) {
+      busy = true;
+      processNativeBuffer().finally(() => {
+        busy = false;
+      });
     }
   });
+
+  async function processNativeBuffer() {
+    while (buffer.length >= 4) {
+      const length = buffer.readUInt32LE(0);
+      if (buffer.length < 4 + length) {
+        return;
+      }
+
+      const body = buffer.subarray(4, 4 + length);
+      buffer = buffer.subarray(4 + length);
+
+      const output = await handleMessage(JSON.parse(body.toString('utf8')));
+      writeNativeMessage(output);
+    }
+  }
 }
 
 function writeNativeMessage(payload) {

@@ -8,7 +8,12 @@
   <h3>UltimateBridge</h3>
   <button id="run-smoke">Run native read-only smoke</button>
   <button id="detect-latest">Run latest ChatGPT bridge block</button>
+  <button id="refresh-queue">Refresh delivery queue</button>
+  <button id="clear-queue">Clear queue</button>
+  <h4>Last result</h4>
   <pre id="status">Ready.</pre>
-  <script src="popup.js"></script>
+  <h4>Delivery queue</h4>
+  <pre id="queue">Loading...</pre>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

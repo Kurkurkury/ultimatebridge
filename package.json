@@ -14,6 +14,7 @@
     "smoke:extension-queue": "node scripts/smoke-extension-delivery-queue.mjs",
     "smoke:confirmed-plan": "node scripts/smoke-confirmed-plan.mjs",
     "smoke:project-roots": "node scripts/smoke-project-roots.mjs",
+    "smoke:rollback": "node scripts/smoke-rollback.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

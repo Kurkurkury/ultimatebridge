@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { resolveInsideRoot, policyError } from './path-policy.mjs';
+import { writeRollbackPlan } from './rollback-plan.mjs';
 
 export async function applySafeChanges(request, job) {
   if (request.mode !== 'SAFE_CHANGE') {
@@ -40,6 +41,11 @@ export async function applySafeChanges(request, job) {
     backupRoot,
     changes: results
   };
+
+  const rollback = await writeRollbackPlan(job, summary);
+  summary.rollbackPlanPath = rollback.planPath;
+  summary.rollbackRestoreCommandPath = rollback.commandPath;
+  summary.restoreCommand = rollback.plan.restoreCommand;
 
   await fs.writeFile(path.join(job.runFolder, 'safe-change-result.json'), JSON.stringify(summary, null, 2), 'utf8');
   return summary;

@@ -46,9 +46,13 @@ test('safe change writes text file inside allowlisted approved root', async () =
     assert.equal(response.ok, true);
     assert.equal(response.report.status, 'OK');
     assert.match(response.report.summary, /allowlistMatchedRoot=/);
+    assert.match(response.report.summary, /rollbackPlanPath=/);
+    assert.match(response.report.summary, /restoreCommand=/);
     const written = await fs.readFile(path.join(root, 'notes', 'result.txt'), 'utf8');
     assert.equal(written, 'hello safe change');
     assert.ok(response.manifest.items.some((item) => item.path.endsWith('safe-change-result.json')));
+    assert.ok(response.manifest.items.some((item) => item.path.endsWith('rollback-plan.json')));
+    assert.ok(response.manifest.items.some((item) => item.path.endsWith('rollback-restore-command.txt')));
   });
 });
 
@@ -74,6 +78,7 @@ test('safe change replaceText creates backup inside allowlisted root', async () 
     assert.equal(changed, 'before VALUE after');
     const backupPath = response.report.summary.match(/backupRoot=(.*)/)?.[1]?.split('\n')?.[0];
     assert.ok(backupPath);
+    assert.ok(response.manifest.items.some((item) => item.path.endsWith('rollback-plan.json')));
   });
 });
 

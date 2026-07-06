@@ -1,13 +1,21 @@
-import { formatDeliveryQueue, formatDeliveryResponse } from '../delivery-queue.js';
+import {
+  buildPreviewApplyHint,
+  findLatestPreviewQueueItem,
+  formatDeliveryQueue,
+  formatDeliveryResponse
+} from '../delivery-queue.js';
 import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
 
 const status = document.getElementById('status');
 const queue = document.getElementById('queue');
+const previewApply = document.getElementById('preview-apply');
 const uploadPlan = document.getElementById('upload-plan');
 const runSmoke = document.getElementById('run-smoke');
 const detectLatest = document.getElementById('detect-latest');
 const refreshQueue = document.getElementById('refresh-queue');
 const clearQueue = document.getElementById('clear-queue');
+const showPreviewApply = document.getElementById('show-preview-apply');
+const copyPreviewApply = document.getElementById('copy-preview-apply');
 const prepareUpload = document.getElementById('prepare-upload');
 const copyUploadPlan = document.getElementById('copy-upload-plan');
 const clearUploadPlan = document.getElementById('clear-upload-plan');
@@ -18,6 +26,10 @@ function writeStatus(value) {
 
 function writeQueue(value) {
   queue.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function writePreviewApply(value) {
+  previewApply.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeUploadPlan(value) {
@@ -43,9 +55,10 @@ async function loadQueue() {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_DELIVERY_QUEUE' });
   if (!response?.ok) {
     writeQueue(response?.error ?? 'Could not load delivery queue.');
-    return;
+    return [];
   }
   writeQueue(formatDeliveryQueue(response.queue));
+  return response.queue ?? [];
 }
 
 async function loadUploadPlan() {
@@ -55,6 +68,14 @@ async function loadUploadPlan() {
     return;
   }
   writeUploadPlan(formatArtifactUploadPlan(response.uploadPlan));
+}
+
+async function showLatestPreviewApplyRequirement() {
+  const currentQueue = await loadQueue();
+  const previewItem = findLatestPreviewQueueItem(currentQueue);
+  const hint = buildPreviewApplyHint(previewItem);
+  writePreviewApply(hint);
+  return hint;
 }
 
 runSmoke.addEventListener('click', async () => {
@@ -95,10 +116,30 @@ clearQueue.addEventListener('click', async () => {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_CLEAR_DELIVERY_QUEUE' });
   if (response?.ok) {
     writeQueue('Delivery queue is empty.');
+    writePreviewApply('No preview apply requirement available.');
     writeUploadPlan('No artifact upload plan prepared.');
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
+  }
+});
+
+showPreviewApply.addEventListener('click', async () => {
+  try {
+    await showLatestPreviewApplyRequirement();
+    writeStatus('Preview apply requirement loaded.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copyPreviewApply.addEventListener('click', async () => {
+  try {
+    const hint = await showLatestPreviewApplyRequirement();
+    await navigator.clipboard.writeText(hint);
+    writeStatus('Preview apply requirement copied to clipboard.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
   }
 });
 

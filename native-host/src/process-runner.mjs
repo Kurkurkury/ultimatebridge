@@ -22,11 +22,13 @@ export async function runPowerShellScript(scriptPath, args = [], options = {}) {
 
   const timeout = setTimeout(() => {
     timedOut = true;
-    try {
-      child.kill('SIGTERM');
-    } catch {
-      // best effort
-    }
+    killProcessTree(child.pid).catch(() => {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        // best effort fallback
+      }
+    });
   }, timeoutSeconds * 1000);
 
   child.stdout.on('data', (chunk) => {
@@ -66,4 +68,27 @@ export async function runPowerShellScript(scriptPath, args = [], options = {}) {
   }
 
   return result;
+}
+
+async function killProcessTree(pid) {
+  if (!pid) return;
+
+  if (process.platform === 'win32') {
+    await runDetached('taskkill', ['/PID', String(pid), '/T', '/F']);
+    return;
+  }
+
+  try {
+    process.kill(-pid, 'SIGTERM');
+  } catch {
+    process.kill(pid, 'SIGTERM');
+  }
+}
+
+function runDetached(command, args) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { windowsHide: true, stdio: 'ignore' });
+    child.on('close', resolve);
+    child.on('error', resolve);
+  });
 }

@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repoRoot = path.resolve(import.meta.dirname, '..');
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, '..');
 const hostPath = path.join(repoRoot, 'native-host', 'src', 'host.mjs');
 const host = process.env.COMPUTERNAME ?? process.env.HOSTNAME ?? 'SPEIDELBASE';
 

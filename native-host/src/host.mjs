@@ -1,6 +1,16 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { normalizeRequest } from './protocol-validator.mjs';
 import { createJob } from './job-spool.mjs';
+import { runPowerShellScript } from './process-runner.mjs';
 import { buildReport, routeReport } from './report-router.mjs';
+import { buildAttachmentManifest, writeAttachmentManifest } from './attachment-router.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '../..');
+const HEALTH_SCRIPT = path.join(REPO_ROOT, 'runner', 'powershell', 'UB_HealthCheck.ps1');
 
 async function handleMessage(message) {
   try {
@@ -9,18 +19,53 @@ async function handleMessage(message) {
     });
 
     const job = await createJob(request);
+
+    if (request.mode === 'EXECUTION_LOCKED') {
+      const report = buildReport({
+        requestId: request.requestId,
+        jobId: job.jobId,
+        status: 'BLOCKED',
+        exitCode: 0,
+        timedOut: false,
+        runFolder: job.runFolder,
+        summary: 'Execution locked by request mode. Request was parsed but not executed.'
+      });
+      return await finish(job, request, report);
+    }
+
+    if (request.mode !== 'READ_ONLY') {
+      const report = buildReport({
+        requestId: request.requestId,
+        jobId: job.jobId,
+        status: 'BLOCKED',
+        exitCode: 0,
+        timedOut: false,
+        runFolder: job.runFolder,
+        summary: `Mode ${request.mode} is not implemented in the read-only MVP flow.`
+      });
+      return await finish(job, request, report);
+    }
+
+    const runnerResult = await runPowerShellScript(HEALTH_SCRIPT, [], {
+      cwd: REPO_ROOT,
+      runFolder: job.runFolder,
+      timeoutSeconds: Number(process.env.ULTIMATEBRIDGE_TIMEOUT_SECONDS ?? 300)
+    });
+
+    const status = runnerResult.timedOut ? 'TIMEOUT' : runnerResult.exitCode === 0 ? 'OK' : 'ERROR';
     const report = buildReport({
       requestId: request.requestId,
       jobId: job.jobId,
-      status: 'OK',
-      exitCode: 0,
-      timedOut: false,
+      status,
+      exitCode: runnerResult.exitCode,
+      timedOut: runnerResult.timedOut,
+      timeoutSeconds: runnerResult.timeoutSeconds,
       runFolder: job.runFolder,
-      summary: 'Request accepted and normalized. Runner execution is scaffolded in this foundation version.'
+      summary: summarizeRunnerResult(runnerResult),
+      attachments: []
     });
 
-    const delivery = await routeReport(report, { runFolder: job.runFolder });
-    return { ok: true, request, job, report, delivery };
+    return await finish(job, request, report, runnerResult);
   } catch (error) {
     return {
       ok: false,
@@ -31,18 +76,60 @@ async function handleMessage(message) {
   }
 }
 
-process.stdin.on('readable', async () => {
-  let header;
-  while ((header = process.stdin.read(4)) !== null) {
-    const length = header.readUInt32LE(0);
-    const body = process.stdin.read(length);
-    if (!body) return;
+async function finish(job, request, report, runnerResult = null) {
+  const reportPath = path.join(job.runFolder, 'ultimatebridge-runner-report.json');
+  await fs.writeFile(reportPath, JSON.stringify(report, null, 2), 'utf8');
 
-    const input = JSON.parse(body.toString('utf8'));
-    const output = await handleMessage(input);
-    writeNativeMessage(output);
+  const staged = [reportPath];
+  if (runnerResult) {
+    staged.push(path.join(job.runFolder, 'runner-result.json'));
+    staged.push(path.join(job.runFolder, 'stdout.txt'));
+    staged.push(path.join(job.runFolder, 'stderr.txt'));
   }
-});
+
+  const manifest = await buildAttachmentManifest(job.jobId, staged);
+  const manifestPath = await writeAttachmentManifest(job.runFolder, manifest);
+  const delivery = await routeReport(report, { runFolder: job.runFolder });
+
+  return {
+    ok: report.status === 'OK',
+    request,
+    job,
+    report,
+    manifest,
+    manifestPath,
+    delivery
+  };
+}
+
+function summarizeRunnerResult(result) {
+  const lines = [
+    `PowerShell healthcheck exitCode=${result.exitCode}`,
+    `timedOut=${result.timedOut}`,
+    `durationMs=${result.durationMs}`
+  ];
+
+  const stdout = result.stdout.trim();
+  const stderr = result.stderr.trim();
+  if (stdout) lines.push(`stdout=${stdout.slice(0, 1000)}`);
+  if (stderr) lines.push(`stderr=${stderr.slice(0, 1000)}`);
+  return lines.join('\n');
+}
+
+function attachNativeStdio() {
+  process.stdin.on('readable', async () => {
+    let header;
+    while ((header = process.stdin.read(4)) !== null) {
+      const length = header.readUInt32LE(0);
+      const body = process.stdin.read(length);
+      if (!body) return;
+
+      const input = JSON.parse(body.toString('utf8'));
+      const output = await handleMessage(input);
+      writeNativeMessage(output);
+    }
+  });
+}
 
 function writeNativeMessage(payload) {
   const json = Buffer.from(JSON.stringify(payload), 'utf8');
@@ -52,4 +139,8 @@ function writeNativeMessage(payload) {
   process.stdout.write(json);
 }
 
-export { handleMessage };
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  attachNativeStdio();
+}
+
+export { handleMessage, attachNativeStdio };

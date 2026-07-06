@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildDeliveryQueueItem,
+  buildManualSendGuardText,
   buildPreviewApplyHint,
   buildSafeChangeApplyBlock,
   findLatestPreviewQueueItem,
   mergeDeliveryQueue,
   formatDeliveryQueue,
-  formatDeliveryResponse
+  formatDeliveryResponse,
+  MANUAL_REVIEW_REQUIRED
 } from '../extension/src/delivery-queue.js';
 
 const nativeResponse = {
@@ -43,7 +45,7 @@ const previewNativeResponse = {
     summary: [
       'SAFE_CHANGE_PREVIEW changes=1',
       'previewHash=abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd',
-      'requiredPreviewHash=abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd',
+      'requiredPreviewHash=abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd',
       'wouldWrite=true'
     ].join('\n')
   },
@@ -87,7 +89,7 @@ test('findLatestPreviewQueueItem and buildPreviewApplyHint expose required hash'
   assert.match(hint, /safe-change-preview\.diff\.txt/);
 });
 
-test('buildSafeChangeApplyBlock builds matching SAFE_CHANGE JSON', () => {
+test('buildSafeChangeApplyBlock builds matching SAFE_CHANGE JSON with manual review guard', () => {
   const item = buildDeliveryQueueItem(previewNativeResponse, '2026-01-01T00:00:00.000Z');
   const block = buildSafeChangeApplyBlock(item, { requestId: 'APPLY1', taskName: 'ApplyTest' });
   const parsed = JSON.parse(block);
@@ -95,9 +97,19 @@ test('buildSafeChangeApplyBlock builds matching SAFE_CHANGE JSON', () => {
   assert.equal(parsed.mode, 'SAFE_CHANGE');
   assert.equal(parsed.requestId, 'APPLY1');
   assert.equal(parsed.taskName, 'ApplyTest');
+  assert.equal(parsed.manualReviewRequired, true);
+  assert.equal(parsed.sendBehavior, MANUAL_REVIEW_REQUIRED);
+  assert.equal(parsed.sourcePreviewJobId, 'PREVIEW1');
   assert.equal(parsed.approvedProjectRoot, 'C:/project');
   assert.equal(parsed.requiredPreviewHash, item.previewHash);
   assert.deepEqual(parsed.changes, item.previewChanges);
+});
+
+test('buildManualSendGuardText explains manual review requirement', () => {
+  const text = buildManualSendGuardText();
+  assert.match(text, /MANUAL SEND GUARD/);
+  assert.match(text, /must not submit/);
+  assert.match(text, /Review the block yourself/);
 });
 
 test('mergeDeliveryQueue replaces duplicate job id and preserves newest first', () => {

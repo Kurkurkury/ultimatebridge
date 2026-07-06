@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildDeliveryQueueItem,
+  buildPreviewApplyHint,
+  findLatestPreviewQueueItem,
   mergeDeliveryQueue,
   formatDeliveryQueue,
   formatDeliveryResponse
@@ -26,6 +28,28 @@ const nativeResponse = {
   }
 };
 
+const previewNativeResponse = {
+  ok: true,
+  report: {
+    jobId: 'PREVIEW1',
+    status: 'OK',
+    summary: [
+      'SAFE_CHANGE_PREVIEW changes=1',
+      'previewHash=abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd',
+      'requiredPreviewHash=abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd',
+      'wouldWrite=true'
+    ].join('\n')
+  },
+  deliveryPlan: {
+    jobId: 'PREVIEW1',
+    deliveryMode: 'direct',
+    artifacts: [
+      { path: 'C:/run/safe-change-preview.json', kind: 'json', size: 200, sha256: 'jsonhash', upload: true },
+      { path: 'C:/run/safe-change-preview.diff.txt', kind: 'text', size: 80, sha256: 'diffhash', upload: true }
+    ]
+  }
+};
+
 test('buildDeliveryQueueItem extracts delivery plan and uploadable artifacts', () => {
   const item = buildDeliveryQueueItem(nativeResponse, '2026-01-01T00:00:00.000Z');
   assert.equal(item.jobId, 'JOB1');
@@ -34,6 +58,24 @@ test('buildDeliveryQueueItem extracts delivery plan and uploadable artifacts', (
   assert.equal(item.artifactCount, 2);
   assert.equal(item.artifacts.length, 1);
   assert.equal(item.summary, 'first line');
+});
+
+test('buildDeliveryQueueItem extracts preview hash and preview artifacts', () => {
+  const item = buildDeliveryQueueItem(previewNativeResponse, '2026-01-01T00:00:00.000Z');
+  assert.equal(item.isPreview, true);
+  assert.equal(item.previewHash, 'abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd');
+  assert.equal(item.requiredPreviewHash, item.previewHash);
+  assert.equal(item.previewJsonPath, 'C:/run/safe-change-preview.json');
+  assert.equal(item.previewDiffPath, 'C:/run/safe-change-preview.diff.txt');
+});
+
+test('findLatestPreviewQueueItem and buildPreviewApplyHint expose required hash', () => {
+  const item = buildDeliveryQueueItem(previewNativeResponse, '2026-01-01T00:00:00.000Z');
+  const latest = findLatestPreviewQueueItem([buildDeliveryQueueItem(nativeResponse), item]);
+  const hint = buildPreviewApplyHint(latest);
+  assert.match(hint, /ULTIMATEBRIDGE PREVIEW APPLY REQUIREMENT/);
+  assert.match(hint, /requiredPreviewHash/);
+  assert.match(hint, /safe-change-preview\.diff\.txt/);
 });
 
 test('mergeDeliveryQueue replaces duplicate job id and preserves newest first', () => {
@@ -50,6 +92,14 @@ test('formatDeliveryQueue produces readable queue output', () => {
   assert.match(text, /jobId=JOB1/);
   assert.match(text, /deliveryMode=staged_artifacts/);
   assert.match(text, /ultimatebridge-runner-report\.json/);
+});
+
+test('formatDeliveryQueue includes preview apply fields', () => {
+  const item = buildDeliveryQueueItem(previewNativeResponse, '2026-01-01T00:00:00.000Z');
+  const text = formatDeliveryQueue([item]);
+  assert.match(text, /preview=true/);
+  assert.match(text, /previewHash=/);
+  assert.match(text, /previewDiffPath=/);
 });
 
 test('formatDeliveryResponse handles service worker wrapped responses', () => {

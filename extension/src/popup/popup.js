@@ -20,6 +20,7 @@ const showPreviewApply = document.getElementById('show-preview-apply');
 const copyPreviewApply = document.getElementById('copy-preview-apply');
 const buildSafeChange = document.getElementById('build-safe-change');
 const copySafeChange = document.getElementById('copy-safe-change');
+const insertSafeChange = document.getElementById('insert-safe-change');
 const prepareUpload = document.getElementById('prepare-upload');
 const copyUploadPlan = document.getElementById('copy-upload-plan');
 const clearUploadPlan = document.getElementById('clear-upload-plan');
@@ -95,6 +96,26 @@ async function showLatestSafeChangeApplyBlock() {
   const block = buildSafeChangeApplyBlock(previewItem);
   writeSafeChangeBlock(block);
   return block;
+}
+
+async function insertLatestSafeChangeApplyBlock() {
+  const block = await showLatestSafeChangeApplyBlock();
+  if (!block.trim().startsWith('{')) {
+    return { ok: false, reason: 'NO_SAFE_CHANGE_BLOCK', message: block };
+  }
+
+  const tab = await getActiveTab();
+  if (!tab?.id) {
+    return { ok: false, reason: 'NO_ACTIVE_TAB' };
+  }
+
+  const [result] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: (text) => window.UltimateBridgeSafeInsertText?.(text) ?? { ok: false, reason: 'SAFE_INSERT_FUNCTION_MISSING' },
+    args: [block]
+  });
+
+  return result?.result ?? { ok: false, reason: 'NO_INJECTION_RESULT' };
 }
 
 runSmoke.addEventListener('click', async () => {
@@ -177,6 +198,19 @@ copySafeChange.addEventListener('click', async () => {
     const block = await showLatestSafeChangeApplyBlock();
     await navigator.clipboard.writeText(block);
     writeStatus('SAFE_CHANGE apply block copied to clipboard.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+insertSafeChange.addEventListener('click', async () => {
+  try {
+    const result = await insertLatestSafeChangeApplyBlock();
+    if (result.ok) {
+      writeStatus(`SAFE_CHANGE apply block inserted into chat input. It was NOT submitted.\nhash=${result.hash}`);
+    } else {
+      writeStatus(`Could not insert SAFE_CHANGE apply block.\nreason=${result.reason ?? 'UNKNOWN'}\n${result.message ?? ''}`);
+    }
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }

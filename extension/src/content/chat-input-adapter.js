@@ -8,7 +8,7 @@ function findChatInput() {
   return document.querySelector('textarea, div[contenteditable="true"]');
 }
 
-export async function safeInsertText(text) {
+async function safeInsertText(text) {
   const input = findChatInput();
   if (!input) {
     return { ok: false, reason: 'INPUT_NOT_FOUND' };

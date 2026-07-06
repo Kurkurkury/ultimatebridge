@@ -7,7 +7,8 @@ import { runPowerShellScript } from './process-runner.mjs';
 import { buildReport, routeReport } from './report-router.mjs';
 import { buildAttachmentManifest, writeAttachmentManifest } from './attachment-router.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const HEALTH_SCRIPT = path.join(REPO_ROOT, 'runner', 'powershell', 'UB_HealthCheck.ps1');
 
@@ -115,18 +116,20 @@ function summarizeRunnerResult(result) {
   return lines.join('\n');
 }
 
-process.stdin.on('readable', async () => {
-  let header;
-  while ((header = process.stdin.read(4)) !== null) {
-    const length = header.readUInt32LE(0);
-    const body = process.stdin.read(length);
-    if (!body) return;
+function attachNativeStdio() {
+  process.stdin.on('readable', async () => {
+    let header;
+    while ((header = process.stdin.read(4)) !== null) {
+      const length = header.readUInt32LE(0);
+      const body = process.stdin.read(length);
+      if (!body) return;
 
-    const input = JSON.parse(body.toString('utf8'));
-    const output = await handleMessage(input);
-    writeNativeMessage(output);
-  }
-});
+      const input = JSON.parse(body.toString('utf8'));
+      const output = await handleMessage(input);
+      writeNativeMessage(output);
+    }
+  });
+}
 
 function writeNativeMessage(payload) {
   const json = Buffer.from(JSON.stringify(payload), 'utf8');
@@ -136,4 +139,8 @@ function writeNativeMessage(payload) {
   process.stdout.write(json);
 }
 
-export { handleMessage };
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  attachNativeStdio();
+}
+
+export { handleMessage, attachNativeStdio };

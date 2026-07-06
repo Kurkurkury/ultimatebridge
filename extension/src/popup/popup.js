@@ -7,6 +7,7 @@ import {
   formatDeliveryResponse
 } from '../delivery-queue.js';
 import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
+import { buildDiffViewerState, formatDiffViewerState } from '../diff-viewer.js';
 import { buildRoundtripPanelState, formatRoundtripPanelState } from '../roundtrip-proof.js';
 
 const LAST_INSERTION_KEY = 'ultimatebridgeLastApplyInsertion';
@@ -14,6 +15,7 @@ const LAST_INSERTION_KEY = 'ultimatebridgeLastApplyInsertion';
 const status = document.getElementById('status');
 const manualSendGuard = document.getElementById('manual-send-guard');
 const roundtripStatus = document.getElementById('roundtrip-status');
+const diffPreview = document.getElementById('diff-preview');
 const queue = document.getElementById('queue');
 const previewApply = document.getElementById('preview-apply');
 const safeChangeBlock = document.getElementById('safe-change-block');
@@ -41,6 +43,10 @@ function writeManualSendGuard(value = buildManualSendGuardText()) {
 
 function writeRoundtripStatus(value) {
   roundtripStatus.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function writeDiffPreview(value) {
+  diffPreview.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeQueue(value) {
@@ -93,16 +99,24 @@ async function updateRoundtripPanel(currentQueue) {
   return state;
 }
 
+function updateDiffPreview(currentQueue) {
+  const state = buildDiffViewerState(currentQueue);
+  writeDiffPreview(formatDiffViewerState(state));
+  return state;
+}
+
 async function loadQueue() {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_DELIVERY_QUEUE' });
   if (!response?.ok) {
     writeQueue(response?.error ?? 'Could not load delivery queue.');
     await updateRoundtripPanel([]);
+    updateDiffPreview([]);
     return [];
   }
   const currentQueue = response.queue ?? [];
   writeQueue(formatDeliveryQueue(currentQueue));
   await updateRoundtripPanel(currentQueue);
+  updateDiffPreview(currentQueue);
   return currentQueue;
 }
 
@@ -199,6 +213,7 @@ clearQueue.addEventListener('click', async () => {
     writeUploadPlan('No artifact upload plan prepared.');
     writeManualSendGuard();
     await updateRoundtripPanel([]);
+    updateDiffPreview([]);
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');

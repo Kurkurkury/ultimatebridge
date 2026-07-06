@@ -13,6 +13,7 @@
     "createdBy": { "type": "string" },
     "body": { "type": "string" },
     "approvedProjectRoot": { "type": "string" },
+    "requiredPreviewHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "changes": {
       "type": "array",
       "items": {

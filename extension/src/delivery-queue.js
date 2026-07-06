@@ -4,6 +4,7 @@ export const LAST_DELIVERY_KEY = 'ultimatebridgeLastDelivery';
 export function buildDeliveryQueueItem(nativeResponse, now = new Date().toISOString()) {
   const response = nativeResponse?.response ?? nativeResponse ?? {};
   const report = response.report ?? {};
+  const request = response.request ?? {};
   const plan = response.deliveryPlan ?? {};
   const manifest = response.manifest ?? {};
   const artifacts = Array.isArray(plan.artifacts) ? plan.artifacts : Array.isArray(manifest.items) ? manifest.items : [];
@@ -13,6 +14,7 @@ export function buildDeliveryQueueItem(nativeResponse, now = new Date().toISOStr
   const requiredPreviewHash = extractSummaryValue(summary, 'requiredPreviewHash');
   const previewJsonPath = findArtifactPath(artifacts, 'safe-change-preview.json');
   const previewDiffPath = findArtifactPath(artifacts, 'safe-change-preview.diff.txt');
+  const isPreview = summary.includes('SAFE_CHANGE_PREVIEW') || Boolean(previewJsonPath || previewDiffPath);
 
   return {
     id: `${jobId}:${now}`,
@@ -22,11 +24,13 @@ export function buildDeliveryQueueItem(nativeResponse, now = new Date().toISOStr
     jobId,
     deliveryMode: plan.deliveryMode ?? response.delivery?.delivery ?? 'unknown',
     summary: firstLine(summary),
-    isPreview: summary.includes('SAFE_CHANGE_PREVIEW') || Boolean(previewJsonPath || previewDiffPath),
+    isPreview,
     previewHash,
     requiredPreviewHash,
     previewJsonPath,
     previewDiffPath,
+    approvedProjectRoot: isPreview ? request.approvedProjectRoot ?? null : null,
+    previewChanges: isPreview && Array.isArray(request.changes) ? request.changes : [],
     chatTextPath: plan.chatTextPath ?? null,
     fullReportPath: plan.fullReportPath ?? null,
     artifactCount: artifacts.length,
@@ -73,6 +77,8 @@ export function formatDeliveryQueueItem(item) {
   if (item.isPreview) lines.push('preview=true');
   if (item.previewHash) lines.push(`previewHash=${item.previewHash}`);
   if (item.requiredPreviewHash) lines.push(`requiredPreviewHash=${item.requiredPreviewHash}`);
+  if (item.approvedProjectRoot) lines.push(`approvedProjectRoot=${item.approvedProjectRoot}`);
+  if (item.previewChanges?.length) lines.push(`previewChanges=${item.previewChanges.length}`);
   if (item.previewJsonPath) lines.push(`previewJsonPath=${item.previewJsonPath}`);
   if (item.previewDiffPath) lines.push(`previewDiffPath=${item.previewDiffPath}`);
   if (item.chatTextPath) lines.push(`chatTextPath=${item.chatTextPath}`);
@@ -109,6 +115,28 @@ export function buildPreviewApplyHint(item) {
     'Use this field in the matching SAFE_CHANGE request:',
     `"requiredPreviewHash": "${item.previewHash}"`
   ].join('\n');
+}
+
+export function buildSafeChangeApplyBlock(item, options = {}) {
+  if (!item?.previewHash) {
+    return 'No SAFE_CHANGE apply block can be built. Run SAFE_CHANGE_PREVIEW first.';
+  }
+
+  if (!item.approvedProjectRoot || !Array.isArray(item.previewChanges) || item.previewChanges.length === 0) {
+    return 'No SAFE_CHANGE apply block can be built. Preview queue item is missing approvedProjectRoot or changes.';
+  }
+
+  const request = {
+    protocol: 'ULTIMATEBRIDGE_REQUEST_V1',
+    requestId: options.requestId ?? 'APPLY_FROM_PREVIEW',
+    mode: 'SAFE_CHANGE',
+    taskName: options.taskName ?? 'ApplyFromPreview',
+    approvedProjectRoot: item.approvedProjectRoot,
+    requiredPreviewHash: item.previewHash,
+    changes: item.previewChanges
+  };
+
+  return JSON.stringify(request, null, 2);
 }
 
 function firstLine(value) {

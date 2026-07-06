@@ -18,6 +18,7 @@
     "smoke:preview-diff": "node scripts/smoke-preview-diff.mjs",
     "smoke:preview-apply": "node scripts/smoke-preview-handshake.mjs",
     "smoke:extension-preview-ui": "node scripts/smoke-extension-preview-ui.mjs",
+    "smoke:browser-safe-change-builder": "node scripts/smoke-browser-safe-change-builder.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

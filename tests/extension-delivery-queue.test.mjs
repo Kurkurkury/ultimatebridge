@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildDeliveryQueueItem,
   buildPreviewApplyHint,
+  buildSafeChangeApplyBlock,
   findLatestPreviewQueueItem,
   mergeDeliveryQueue,
   formatDeliveryQueue,
@@ -30,6 +31,12 @@ const nativeResponse = {
 
 const previewNativeResponse = {
   ok: true,
+  request: {
+    approvedProjectRoot: 'C:/project',
+    changes: [
+      { op: 'replaceText', path: 'file.txt', search: 'before', replace: 'after' }
+    ]
+  },
   report: {
     jobId: 'PREVIEW1',
     status: 'OK',
@@ -60,13 +67,15 @@ test('buildDeliveryQueueItem extracts delivery plan and uploadable artifacts', (
   assert.equal(item.summary, 'first line');
 });
 
-test('buildDeliveryQueueItem extracts preview hash and preview artifacts', () => {
+test('buildDeliveryQueueItem extracts preview hash, request, and preview artifacts', () => {
   const item = buildDeliveryQueueItem(previewNativeResponse, '2026-01-01T00:00:00.000Z');
   assert.equal(item.isPreview, true);
   assert.equal(item.previewHash, 'abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd');
   assert.equal(item.requiredPreviewHash, item.previewHash);
   assert.equal(item.previewJsonPath, 'C:/run/safe-change-preview.json');
   assert.equal(item.previewDiffPath, 'C:/run/safe-change-preview.diff.txt');
+  assert.equal(item.approvedProjectRoot, 'C:/project');
+  assert.equal(item.previewChanges.length, 1);
 });
 
 test('findLatestPreviewQueueItem and buildPreviewApplyHint expose required hash', () => {
@@ -76,6 +85,19 @@ test('findLatestPreviewQueueItem and buildPreviewApplyHint expose required hash'
   assert.match(hint, /ULTIMATEBRIDGE PREVIEW APPLY REQUIREMENT/);
   assert.match(hint, /requiredPreviewHash/);
   assert.match(hint, /safe-change-preview\.diff\.txt/);
+});
+
+test('buildSafeChangeApplyBlock builds matching SAFE_CHANGE JSON', () => {
+  const item = buildDeliveryQueueItem(previewNativeResponse, '2026-01-01T00:00:00.000Z');
+  const block = buildSafeChangeApplyBlock(item, { requestId: 'APPLY1', taskName: 'ApplyTest' });
+  const parsed = JSON.parse(block);
+  assert.equal(parsed.protocol, 'ULTIMATEBRIDGE_REQUEST_V1');
+  assert.equal(parsed.mode, 'SAFE_CHANGE');
+  assert.equal(parsed.requestId, 'APPLY1');
+  assert.equal(parsed.taskName, 'ApplyTest');
+  assert.equal(parsed.approvedProjectRoot, 'C:/project');
+  assert.equal(parsed.requiredPreviewHash, item.previewHash);
+  assert.deepEqual(parsed.changes, item.previewChanges);
 });
 
 test('mergeDeliveryQueue replaces duplicate job id and preserves newest first', () => {
@@ -99,6 +121,8 @@ test('formatDeliveryQueue includes preview apply fields', () => {
   const text = formatDeliveryQueue([item]);
   assert.match(text, /preview=true/);
   assert.match(text, /previewHash=/);
+  assert.match(text, /approvedProjectRoot=/);
+  assert.match(text, /previewChanges=1/);
   assert.match(text, /previewDiffPath=/);
 });
 

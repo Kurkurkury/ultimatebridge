@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+*.log
+*.tmp
+*.bak
+*.zip
+*.7z
+*.rar
+runs/
+out/
+dist/
+coverage/
+local-settings.json

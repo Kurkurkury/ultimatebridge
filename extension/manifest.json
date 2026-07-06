@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "UltimateBridge",
+  "version": "0.1.0",
+  "description": "Controlled ChatGPT to local Windows bridge foundation.",
+  "permissions": ["nativeMessaging", "storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
+  "background": {
+    "service_worker": "src/service-worker/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["src/content/detector.js", "src/content/chat-input-adapter.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "UltimateBridge"
+  }
+}

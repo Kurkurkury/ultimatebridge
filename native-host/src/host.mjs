@@ -10,6 +10,7 @@ import { applySafeChanges } from './safe-change-applier.mjs';
 import { previewSafeChanges } from './safe-change-preview.mjs';
 import { writeDeliveryArtifacts } from './delivery-planner.mjs';
 import { assertProjectRootAllowed } from './project-allowlist.mjs';
+import { assertPreviewHashMatches } from './preview-hash.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,7 +59,12 @@ async function handleMessage(message) {
 
     if (request.mode === 'SAFE_CHANGE') {
       const allowlistResult = await assertProjectRootAllowed(request.approvedProjectRoot);
+      const previewHashResult = assertPreviewHashMatches(request);
       const safeChangeResult = await applySafeChanges(request, job);
+      safeChangeResult.previewHash = previewHashResult.previewHash;
+      safeChangeResult.requiredPreviewHash = previewHashResult.requiredPreviewHash;
+      safeChangeResult.previewHashRequired = previewHashResult.required;
+      safeChangeResult.previewHashMatched = previewHashResult.matched;
       const report = buildReport({
         requestId: request.requestId,
         jobId: job.jobId,
@@ -176,6 +182,8 @@ function summarizePreviewResult(result, allowlistResult) {
     `approvedProjectRoot=${result.approvedProjectRoot}`,
     `allowlistPath=${allowlistResult.allowlistPath}`,
     `allowlistMatchedRoot=${allowlistResult.matchedRoot}`,
+    `previewHash=${result.previewHash}`,
+    `requiredPreviewHash=${result.previewHash}`,
     `wouldWrite=${result.wouldWrite}`,
     `previewJsonPath=${result.jsonPath}`,
     `previewDiffPath=${result.diffPath}`,
@@ -189,6 +197,10 @@ function summarizeSafeChangeResult(result, allowlistResult) {
     `approvedProjectRoot=${result.approvedProjectRoot}`,
     `allowlistPath=${allowlistResult.allowlistPath}`,
     `allowlistMatchedRoot=${allowlistResult.matchedRoot}`,
+    `previewHash=${result.previewHash}`,
+    `requiredPreviewHash=${result.requiredPreviewHash ?? '(none)'}`,
+    `previewHashRequired=${result.previewHashRequired}`,
+    `previewHashMatched=${result.previewHashMatched}`,
     `backupRoot=${result.backupRoot}`,
     `rollbackPlanPath=${result.rollbackPlanPath}`,
     `restoreCommand=${result.restoreCommand}`,

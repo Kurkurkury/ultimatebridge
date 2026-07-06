@@ -28,7 +28,8 @@ function normalizeObjectRequest(request, options) {
     createdBy: request.createdBy ?? 'chatgpt',
     body: typeof request.body === 'string' ? request.body : JSON.stringify(request.body ?? ''),
     approvedProjectRoot: request.approvedProjectRoot,
-    changes: request.changes
+    changes: request.changes,
+    requiredPreviewHash: request.requiredPreviewHash
   };
 
   validateNormalized(normalized, options);
@@ -83,6 +84,10 @@ function validateNormalized(request, options) {
 
   if (!request.body && request.mode !== 'EXECUTION_LOCKED' && request.mode !== 'SAFE_CHANGE' && request.mode !== 'SAFE_CHANGE_PREVIEW') {
     throw block('EMPTY_BODY', 'Request body is empty.');
+  }
+
+  if (request.requiredPreviewHash !== undefined && !/^[a-f0-9]{64}$/i.test(String(request.requiredPreviewHash))) {
+    throw block('BAD_PREVIEW_HASH', 'requiredPreviewHash must be a 64-character SHA-256 hex string.');
   }
 
   if (request.mode === 'SAFE_CHANGE' || request.mode === 'SAFE_CHANGE_PREVIEW') {

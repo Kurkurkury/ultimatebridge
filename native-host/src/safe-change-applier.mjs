@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { resolveInsideRoot, policyError } from './path-policy.mjs';
 import { writeRollbackPlan } from './rollback-plan.mjs';
+import { computePreviewHash } from './preview-hash.mjs';
 
 export async function applySafeChanges(request, job) {
   if (request.mode !== 'SAFE_CHANGE') {
@@ -35,9 +36,15 @@ export async function applySafeChanges(request, job) {
     throw policyError('UNSUPPORTED_SAFE_CHANGE_OP', `Unsupported SAFE_CHANGE operation: ${change.op}`);
   }
 
+  const previewHash = computePreviewHash(request);
+  const requiredPreviewHash = request.requiredPreviewHash ? String(request.requiredPreviewHash) : null;
   const summary = {
     protocol: 'ULTIMATEBRIDGE_SAFE_CHANGE_RESULT_V1',
     approvedProjectRoot: path.resolve(request.approvedProjectRoot),
+    previewHash,
+    requiredPreviewHash,
+    previewHashRequired: Boolean(requiredPreviewHash),
+    previewHashMatched: requiredPreviewHash ? requiredPreviewHash === previewHash : null,
     backupRoot,
     changes: results
   };

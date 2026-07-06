@@ -29,7 +29,10 @@ function normalizeObjectRequest(request, options) {
     body: typeof request.body === 'string' ? request.body : JSON.stringify(request.body ?? ''),
     approvedProjectRoot: request.approvedProjectRoot,
     changes: request.changes,
-    requiredPreviewHash: request.requiredPreviewHash
+    requiredPreviewHash: request.requiredPreviewHash,
+    manualReviewRequired: request.manualReviewRequired,
+    sendBehavior: request.sendBehavior,
+    sourcePreviewJobId: request.sourcePreviewJobId
   };
 
   validateNormalized(normalized, options);
@@ -88,6 +91,14 @@ function validateNormalized(request, options) {
 
   if (request.requiredPreviewHash !== undefined && !/^[a-f0-9]{64}$/i.test(String(request.requiredPreviewHash))) {
     throw block('BAD_PREVIEW_HASH', 'requiredPreviewHash must be a 64-character SHA-256 hex string.');
+  }
+
+  if (request.sendBehavior !== undefined && request.sendBehavior !== 'USER_MUST_REVIEW_AND_SEND_MANUALLY') {
+    throw block('BAD_SEND_BEHAVIOR', 'sendBehavior must be USER_MUST_REVIEW_AND_SEND_MANUALLY when present.');
+  }
+
+  if (request.manualReviewRequired !== undefined && request.manualReviewRequired !== true) {
+    throw block('BAD_MANUAL_REVIEW_MARKER', 'manualReviewRequired must be true when present.');
   }
 
   if (request.mode === 'SAFE_CHANGE' || request.mode === 'SAFE_CHANGE_PREVIEW') {

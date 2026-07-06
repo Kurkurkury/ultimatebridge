@@ -12,6 +12,7 @@
     "smoke:safe-change": "node scripts/smoke-safe-change.mjs",
     "smoke:delivery": "node scripts/smoke-report-delivery.mjs",
     "smoke:extension-queue": "node scripts/smoke-extension-delivery-queue.mjs",
+    "smoke:confirmed-plan": "node scripts/smoke-confirmed-plan.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

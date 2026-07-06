@@ -7,9 +7,13 @@ import {
   formatDeliveryResponse
 } from '../delivery-queue.js';
 import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
+import { buildRoundtripPanelState, formatRoundtripPanelState } from '../roundtrip-proof.js';
+
+const LAST_INSERTION_KEY = 'ultimatebridgeLastApplyInsertion';
 
 const status = document.getElementById('status');
 const manualSendGuard = document.getElementById('manual-send-guard');
+const roundtripStatus = document.getElementById('roundtrip-status');
 const queue = document.getElementById('queue');
 const previewApply = document.getElementById('preview-apply');
 const safeChangeBlock = document.getElementById('safe-change-block');
@@ -33,6 +37,10 @@ function writeStatus(value) {
 
 function writeManualSendGuard(value = buildManualSendGuardText()) {
   manualSendGuard.textContent = value;
+}
+
+function writeRoundtripStatus(value) {
+  roundtripStatus.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeQueue(value) {
@@ -61,19 +69,41 @@ function sendRuntimeMessage(message) {
   });
 }
 
+function getStorageValue(key) {
+  return new Promise((resolve) => chrome.storage.local.get(key, (items) => resolve(items?.[key] ?? null)));
+}
+
+function setStorageValue(key, value) {
+  return new Promise((resolve) => chrome.storage.local.set({ [key]: value }, resolve));
+}
+
+function removeStorageValue(key) {
+  return new Promise((resolve) => chrome.storage.local.remove(key, resolve));
+}
+
 async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
+}
+
+async function updateRoundtripPanel(currentQueue) {
+  const insertion = await getStorageValue(LAST_INSERTION_KEY);
+  const state = buildRoundtripPanelState(currentQueue, insertion);
+  writeRoundtripStatus(formatRoundtripPanelState(state));
+  return state;
 }
 
 async function loadQueue() {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_DELIVERY_QUEUE' });
   if (!response?.ok) {
     writeQueue(response?.error ?? 'Could not load delivery queue.');
+    await updateRoundtripPanel([]);
     return [];
   }
-  writeQueue(formatDeliveryQueue(response.queue));
-  return response.queue ?? [];
+  const currentQueue = response.queue ?? [];
+  writeQueue(formatDeliveryQueue(currentQueue));
+  await updateRoundtripPanel(currentQueue);
+  return currentQueue;
 }
 
 async function loadUploadPlan() {
@@ -162,11 +192,13 @@ refreshQueue.addEventListener('click', loadQueue);
 clearQueue.addEventListener('click', async () => {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_CLEAR_DELIVERY_QUEUE' });
   if (response?.ok) {
+    await removeStorageValue(LAST_INSERTION_KEY);
     writeQueue('Delivery queue is empty.');
     writePreviewApply('No preview apply requirement available.');
     writeSafeChangeBlock('No SAFE_CHANGE apply block prepared.');
     writeUploadPlan('No artifact upload plan prepared.');
     writeManualSendGuard();
+    await updateRoundtripPanel([]);
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
@@ -215,7 +247,10 @@ insertSafeChange.addEventListener('click', async () => {
   try {
     const result = await insertLatestSafeChangeApplyBlock();
     if (result.ok) {
+      const insertion = { ok: true, submitted: false, hash: result.hash ?? null, createdAt: new Date().toISOString() };
+      await setStorageValue(LAST_INSERTION_KEY, insertion);
       writeManualSendGuard();
+      await loadQueue();
       writeStatus(`SAFE_CHANGE apply block inserted into chat input for manual review only. It was NOT submitted.\nhash=${result.hash}`);
     } else {
       writeStatus(`Could not insert SAFE_CHANGE apply block.\nreason=${result.reason ?? 'UNKNOWN'}\n${result.message ?? ''}`);

@@ -77,6 +77,66 @@ export function buildBrowserRoundtripProof(input) {
   return proof;
 }
 
+export function buildRoundtripPanelState(queue, insertion = null) {
+  const entries = Array.isArray(queue) ? queue : [];
+  const latestPreview = entries.find((item) => item?.isPreview && item?.previewHash) ?? null;
+  const latestApply = entries.find((item) => !item?.isPreview && item?.previewHash && item?.requiredPreviewHash) ?? null;
+  const previewHashMatched = Boolean(latestApply?.summary?.includes('SAFE_CHANGE applied') && latestApply?.previewHash && latestPreview?.previewHash && latestApply.previewHash === latestPreview.previewHash);
+
+  const state = {
+    protocol: ROUNDTRIP_PROOF_PROTOCOL,
+    previewJobId: latestPreview?.jobId ?? null,
+    previewHash: latestPreview?.previewHash ?? null,
+    requiredPreviewHash: latestPreview?.requiredPreviewHash ?? null,
+    previewJsonPath: latestPreview?.previewJsonPath ?? null,
+    previewDiffPath: latestPreview?.previewDiffPath ?? null,
+    applyJobId: latestApply?.jobId ?? null,
+    applyHash: latestApply?.previewHash ?? null,
+    applyStatus: latestApply?.status ?? null,
+    insertOk: insertion?.ok === true,
+    submitted: insertion?.submitted === true,
+    insertHash: insertion?.hash ?? null,
+    previewHashMatched
+  };
+
+  state.allOk = Boolean(
+    state.previewJobId &&
+    state.previewHash &&
+    state.requiredPreviewHash === state.previewHash &&
+    state.previewJsonPath &&
+    state.previewDiffPath &&
+    state.applyJobId &&
+    state.applyStatus === 'OK' &&
+    state.applyHash === state.previewHash &&
+    state.insertOk &&
+    state.submitted === false &&
+    state.previewHashMatched
+  );
+
+  return state;
+}
+
+export function formatRoundtripPanelState(state) {
+  if (!state) return 'No roundtrip status available.';
+
+  return [
+    'ULTIMATEBRIDGE ROUNDTRIP STATUS',
+    `allOk=${state.allOk}`,
+    `previewJobId=${state.previewJobId ?? '(none)'}`,
+    `previewHash=${state.previewHash ?? '(none)'}`,
+    `requiredPreviewHash=${state.requiredPreviewHash ?? '(none)'}`,
+    `previewJsonPath=${state.previewJsonPath ?? '(none)'}`,
+    `previewDiffPath=${state.previewDiffPath ?? '(none)'}`,
+    `applyJobId=${state.applyJobId ?? '(none)'}`,
+    `applyHash=${state.applyHash ?? '(none)'}`,
+    `applyStatus=${state.applyStatus ?? '(none)'}`,
+    `insertOk=${state.insertOk}`,
+    `insertHash=${state.insertHash ?? '(none)'}`,
+    `submitted=${state.submitted}`,
+    `previewHashMatched=${state.previewHashMatched}`
+  ].join('\n');
+}
+
 export function formatBrowserRoundtripProof(proof) {
   if (!proof) return 'No browser roundtrip proof available.';
 

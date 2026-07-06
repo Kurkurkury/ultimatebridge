@@ -11,3 +11,4 @@ out/
 dist/
 coverage/
 local-settings.json
+config/*.local.json

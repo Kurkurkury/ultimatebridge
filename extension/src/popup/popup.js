@@ -1,11 +1,16 @@
 import { formatDeliveryQueue, formatDeliveryResponse } from '../delivery-queue.js';
+import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
 
 const status = document.getElementById('status');
 const queue = document.getElementById('queue');
+const uploadPlan = document.getElementById('upload-plan');
 const runSmoke = document.getElementById('run-smoke');
 const detectLatest = document.getElementById('detect-latest');
 const refreshQueue = document.getElementById('refresh-queue');
 const clearQueue = document.getElementById('clear-queue');
+const prepareUpload = document.getElementById('prepare-upload');
+const copyUploadPlan = document.getElementById('copy-upload-plan');
+const clearUploadPlan = document.getElementById('clear-upload-plan');
 
 function writeStatus(value) {
   status.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
@@ -13,6 +18,10 @@ function writeStatus(value) {
 
 function writeQueue(value) {
   queue.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function writeUploadPlan(value) {
+  uploadPlan.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function sendRuntimeMessage(message) {
@@ -37,6 +46,15 @@ async function loadQueue() {
     return;
   }
   writeQueue(formatDeliveryQueue(response.queue));
+}
+
+async function loadUploadPlan() {
+  const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_ARTIFACT_UPLOAD_PLAN' });
+  if (!response?.ok) {
+    writeUploadPlan(response?.error ?? 'Could not load artifact upload plan.');
+    return;
+  }
+  writeUploadPlan(formatArtifactUploadPlan(response.uploadPlan));
 }
 
 runSmoke.addEventListener('click', async () => {
@@ -77,10 +95,45 @@ clearQueue.addEventListener('click', async () => {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_CLEAR_DELIVERY_QUEUE' });
   if (response?.ok) {
     writeQueue('Delivery queue is empty.');
+    writeUploadPlan('No artifact upload plan prepared.');
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
   }
 });
 
+prepareUpload.addEventListener('click', async () => {
+  try {
+    const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_PREPARE_LATEST_ARTIFACT_UPLOAD' });
+    if (!response?.ok) {
+      writeStatus(response?.error ?? 'Could not prepare artifact upload plan.');
+      return;
+    }
+    writeUploadPlan(formatArtifactUploadPlan(response.uploadPlan));
+    writeStatus('Artifact upload plan prepared after user confirmation.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copyUploadPlan.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(uploadPlan.textContent ?? '');
+    writeStatus('Artifact upload plan copied to clipboard.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+clearUploadPlan.addEventListener('click', async () => {
+  const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_CLEAR_ARTIFACT_UPLOAD_PLAN' });
+  if (response?.ok) {
+    writeUploadPlan('No artifact upload plan prepared.');
+    writeStatus('Artifact upload plan cleared.');
+  } else {
+    writeStatus(response?.error ?? 'Could not clear artifact upload plan.');
+  }
+});
+
 loadQueue().catch((error) => writeQueue(`ERROR: ${error.message}`));
+loadUploadPlan().catch((error) => writeUploadPlan(`ERROR: ${error.message}`));

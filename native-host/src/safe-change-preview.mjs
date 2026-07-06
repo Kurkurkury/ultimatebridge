@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { resolveInsideRoot, policyError } from './path-policy.mjs';
+import { computePreviewHash } from './preview-hash.mjs';
 
 export async function previewSafeChanges(request, job) {
   if (request.mode !== 'SAFE_CHANGE_PREVIEW') {
@@ -11,6 +12,7 @@ export async function previewSafeChanges(request, job) {
     throw policyError('MISSING_CHANGES', 'SAFE_CHANGE_PREVIEW requires a non-empty changes array.');
   }
 
+  const previewHash = computePreviewHash(request);
   const previews = [];
   for (const change of request.changes) {
     if (!change || typeof change !== 'object') {
@@ -33,6 +35,11 @@ export async function previewSafeChanges(request, job) {
   const result = {
     protocol: 'ULTIMATEBRIDGE_SAFE_CHANGE_PREVIEW_V1',
     approvedProjectRoot: path.resolve(request.approvedProjectRoot),
+    previewHash,
+    applyRequirement: {
+      field: 'requiredPreviewHash',
+      value: previewHash
+    },
     changeCount: previews.length,
     wouldWrite: previews.some((preview) => preview.wouldChange),
     previews
@@ -123,6 +130,8 @@ export function formatPreviewDiff(previewResult) {
   return [
     'ULTIMATEBRIDGE SAFE_CHANGE PREVIEW DIFF',
     `approvedProjectRoot=${previewResult.approvedProjectRoot}`,
+    `previewHash=${previewResult.previewHash}`,
+    `requiredPreviewHash=${previewResult.previewHash}`,
     `changeCount=${previewResult.changeCount}`,
     `wouldWrite=${previewResult.wouldWrite}`,
     '',

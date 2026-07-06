@@ -7,6 +7,7 @@ import { runPowerShellScript } from './process-runner.mjs';
 import { buildReport, routeReport } from './report-router.mjs';
 import { buildAttachmentManifest, writeAttachmentManifest } from './attachment-router.mjs';
 import { applySafeChanges } from './safe-change-applier.mjs';
+import { writeDeliveryArtifacts } from './delivery-planner.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,7 +107,13 @@ async function finish(job, request, report, runnerResult = null, extraRelativeAr
     staged.push(path.join(job.runFolder, 'stderr.txt'));
   }
 
-  const manifest = await buildAttachmentManifest(job.jobId, staged);
+  let manifest = await buildAttachmentManifest(job.jobId, staged);
+  const initialDelivery = await writeDeliveryArtifacts(job, report, manifest);
+  manifest = await buildAttachmentManifest(job.jobId, [
+    ...staged,
+    initialDelivery.planPath,
+    initialDelivery.plan.chatTextPath
+  ]);
   const manifestPath = await writeAttachmentManifest(job.runFolder, manifest);
   const delivery = await routeReport(report, { runFolder: job.runFolder });
 
@@ -117,7 +124,9 @@ async function finish(job, request, report, runnerResult = null, extraRelativeAr
     report,
     manifest,
     manifestPath,
-    delivery
+    delivery,
+    deliveryPlan: initialDelivery.plan,
+    chatText: initialDelivery.chatText
   };
 }
 

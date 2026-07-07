@@ -92,7 +92,8 @@ const result = {
     popupHasCommandTemplatesSection: popupHtml.includes('command-templates'),
     popupHasShowButton: popupHtml.includes('show-command-templates'),
     popupHasCopyRecommendedButton: popupHtml.includes('copy-recommended-command-template'),
-    popupImportsCommandTemplates: popupJs.includes('formatCommandTemplateLibrary'),
+    popupImportsCommandTemplates: popupJs.includes('formatCommandTemplateLibrary') || popupJs.includes('formatRootAwareCommandTemplateLibrary'),
+    popupImportsRootAwareCommandTemplates: popupJs.includes('buildRootAwareCommandTemplateLibrary'),
     popupUpdatesTemplatesOnQueueLoad: popupJs.includes('updateCommandTemplates(currentQueue)'),
     popupClearsTemplatesOnQueueClear: popupJs.includes('updateCommandTemplates([])'),
     libraryShowsHeader: afterApplyText.includes('ULTIMATEBRIDGE COMMAND TEMPLATE LIBRARY'),
@@ -131,6 +132,7 @@ if (
   !result.staticChecks.popupHasShowButton ||
   !result.staticChecks.popupHasCopyRecommendedButton ||
   !result.staticChecks.popupImportsCommandTemplates ||
+  !result.staticChecks.popupImportsRootAwareCommandTemplates ||
   !result.staticChecks.popupUpdatesTemplatesOnQueueLoad ||
   !result.staticChecks.popupClearsTemplatesOnQueueClear ||
   !result.staticChecks.libraryShowsHeader ||

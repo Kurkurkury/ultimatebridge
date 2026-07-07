@@ -34,14 +34,13 @@ pwsh -NoProfile -Command $PSVersionTable.PSVersion.ToString()
 ```text
 package.json
 scripts/verify-local.mjs
+scripts/diagnose-local.mjs
+scripts/check-powershell.ps1
 native-host/src/host.mjs
-native-host/powershell/UB_BeginTask.ps1
-native-host/powershell/UB_EmitReport.ps1
-native-host/powershell/UB_HealthCheck.ps1
-native-host/powershell/UB_StageAttachments.ps1
-extension/src/manifest.json
-extension/src/background.js
-extension/src/content.js
+extension/manifest.json
+extension/src/service-worker/index.js
+extension/src/content/detector.js
+extension/src/content/chat-input-adapter.js
 extension/src/popup/popup.html
 extension/src/popup/popup.js
 extension/src/popup/project-workflow-panel.js
@@ -88,6 +87,7 @@ workflow uses SAFE_CHANGE_PREVIEW template
 workflow uses SAFE_CHANGE builder
 workflow does not submit chat automatically
 verify:local includes workflow smoke
+verify:local includes local diagnostics smoke
 ```
 
 ## Smoke

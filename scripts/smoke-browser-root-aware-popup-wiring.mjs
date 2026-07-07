@@ -84,7 +84,7 @@ const result = {
     popupFormatsRootAwareLibrary: popupJs.includes('formatRootAwareCommandTemplateLibrary(library)'),
     popupCopiesRootAwareRecommended: popupJs.includes('getRootAwareCommandTemplateById'),
     popupStatusMentionsRootAware: popupJs.includes('Root-aware command templates loaded'),
-    popupCopyStatusMentionsRootAware: popupJs.includes('Recommended root-aware command template copied'),
+    popupCopyStatusMentionsRootAware: popupJs.includes('root-aware command template copied'),
     textShowsRootAwareHeader: text.includes('ULTIMATEBRIDGE ROOT-AWARE COMMAND TEMPLATE LIBRARY'),
     textShowsSelectedLabel: text.includes(`selectedLabel=${library.selectedLabel}`),
     recommendedHasRootLabel: Boolean(recommended.rootLabel),

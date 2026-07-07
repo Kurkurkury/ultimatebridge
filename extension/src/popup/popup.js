@@ -59,6 +59,8 @@ const copyProjectRootLabelMap = document.getElementById('copy-project-root-label
 const clearProjectRootMemory = document.getElementById('clear-project-root-memory');
 const showCommandTemplates = document.getElementById('show-command-templates');
 const copyRecommendedCommandTemplate = document.getElementById('copy-recommended-command-template');
+const commandTemplateSelect = document.getElementById('command-template-select');
+const copySelectedCommandTemplate = document.getElementById('copy-selected-command-template');
 const showSessionSummary = document.getElementById('show-session-summary');
 const copySessionSummary = document.getElementById('copy-session-summary');
 const showPreviewApply = document.getElementById('show-preview-apply');
@@ -308,6 +310,19 @@ async function showLatestCommandTemplates() {
   return { library, text };
 }
 
+async function copyCommandTemplateById(templateId, copyKind) {
+  const { library } = await showLatestCommandTemplates();
+  const template = getRootAwareCommandTemplateById(library, templateId);
+  if (!template?.copyText) {
+    writeStatus(`No ${copyKind} command template is available.`);
+    return null;
+  }
+  await navigator.clipboard.writeText(template.copyText);
+  const labelSuffix = template.rootLabel ? ` for ${template.rootLabel}` : '';
+  writeStatus(`${copyKind} root-aware command template copied: ${template.id}${labelSuffix}`);
+  return template;
+}
+
 async function showLatestSessionSummary() {
   const currentQueue = await loadQueue();
   const insertion = await getStorageValue(LAST_INSERTION_KEY);
@@ -494,14 +509,15 @@ showCommandTemplates.addEventListener('click', async () => {
 copyRecommendedCommandTemplate.addEventListener('click', async () => {
   try {
     const { library } = await showLatestCommandTemplates();
-    const template = getRootAwareCommandTemplateById(library, library.nextRecommendedTemplateId);
-    if (!template?.copyText) {
-      writeStatus('No recommended command template is available.');
-      return;
-    }
-    await navigator.clipboard.writeText(template.copyText);
-    const labelSuffix = template.rootLabel ? ` for ${template.rootLabel}` : '';
-    writeStatus(`Recommended root-aware command template copied: ${template.id}${labelSuffix}`);
+    await copyCommandTemplateById(library.nextRecommendedTemplateId, 'Recommended');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copySelectedCommandTemplate.addEventListener('click', async () => {
+  try {
+    await copyCommandTemplateById(commandTemplateSelect.value, 'Selected');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }

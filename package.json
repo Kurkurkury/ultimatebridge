@@ -34,6 +34,8 @@
     "smoke:browser-root-aware-popup-wiring": "node scripts/smoke-browser-root-aware-popup-wiring.mjs",
     "smoke:browser-template-selection-ui": "node scripts/smoke-browser-template-selection-ui.mjs",
     "smoke:browser-project-workflow-panel": "node scripts/smoke-browser-project-workflow-panel.mjs",
+    "smoke:local-diagnostics": "node scripts/smoke-local-diagnostics.mjs",
+    "diagnose:local": "node scripts/diagnose-local.mjs",
     "verify:local": "node scripts/verify-local.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"

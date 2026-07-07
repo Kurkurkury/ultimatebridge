@@ -13,14 +13,13 @@ fs.mkdirSync(artifactDir, { recursive: true });
 const requiredFiles = [
   'package.json',
   'scripts/verify-local.mjs',
+  'scripts/diagnose-local.mjs',
+  'scripts/check-powershell.ps1',
   'native-host/src/host.mjs',
-  'native-host/powershell/UB_BeginTask.ps1',
-  'native-host/powershell/UB_EmitReport.ps1',
-  'native-host/powershell/UB_HealthCheck.ps1',
-  'native-host/powershell/UB_StageAttachments.ps1',
-  'extension/src/manifest.json',
-  'extension/src/background.js',
-  'extension/src/content.js',
+  'extension/manifest.json',
+  'extension/src/service-worker/index.js',
+  'extension/src/content/detector.js',
+  'extension/src/content/chat-input-adapter.js',
   'extension/src/popup/popup.html',
   'extension/src/popup/popup.js',
   'extension/src/popup/project-workflow-panel.js'
@@ -30,6 +29,7 @@ const requiredScripts = [
   'test',
   'verify:local',
   'diagnose:local',
+  'smoke:local-diagnostics',
   'smoke:browser-project-workflow-panel',
   'smoke:browser-template-selection-ui',
   'smoke:browser-root-aware-popup-wiring',
@@ -52,9 +52,9 @@ const requiredScripts = [
 ];
 
 const commandChecks = [
-  ['node', ['--version']],
-  ['npm', ['--version']],
-  [process.platform === 'win32' ? 'pwsh' : 'pwsh', ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()']]
+  { command: runtimeCommand('node'), args: ['--version'], label: 'node --version' },
+  { command: runtimeCommand('npm'), args: ['--version'], label: 'npm --version' },
+  { command: 'pwsh', args: ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()'], label: 'pwsh -NoProfile -Command $PSVersionTable.PSVersion.ToString()' }
 ];
 
 const packageJson = readJson('package.json');
@@ -68,7 +68,7 @@ const scriptChecks = requiredScripts.map((scriptName) => ({
   exists: Object.prototype.hasOwnProperty.call(scripts, scriptName),
   command: scripts[scriptName] ?? null
 }));
-const commandResults = commandChecks.map(([command, args]) => checkCommand(command, args));
+const commandResults = commandChecks.map((item) => checkCommand(item.command, item.args, item.label));
 
 const popupHtml = readText('extension/src/popup/popup.html');
 const popupJs = readText('extension/src/popup/popup.js');
@@ -85,7 +85,8 @@ const featureChecks = [
   ['workflowUsesPreviewTemplate', workflowJs.includes('safe-change-preview-skeleton')],
   ['workflowUsesSafeChangeBuilder', workflowJs.includes('build-safe-change')],
   ['workflowDoesNotSubmitChat', !workflowJs.includes('submit()')],
-  ['verifyIncludesProjectWorkflowSmoke', verifyLocal.includes('smoke:browser-project-workflow-panel')]
+  ['verifyIncludesProjectWorkflowSmoke', verifyLocal.includes('smoke:browser-project-workflow-panel')],
+  ['verifyIncludesLocalDiagnosticsSmoke', verifyLocal.includes('smoke:local-diagnostics')]
 ].map(([name, ok]) => ({ name, ok }));
 
 const failed = [
@@ -136,15 +137,21 @@ function readText(filePath) {
   }
 }
 
-function checkCommand(command, args) {
+function runtimeCommand(command) {
+  if (process.platform !== 'win32') return command;
+  if (command === 'npm') return 'npm.cmd';
+  return command;
+}
+
+function checkCommand(command, args, label = [command, ...args].join(' ')) {
   const child = spawnSync(command, args, {
     cwd: process.cwd(),
     encoding: 'utf8',
-    shell: process.platform === 'win32',
+    shell: false,
     maxBuffer: 1024 * 1024
   });
   return {
-    label: [command, ...args].join(' '),
+    label,
     ok: child.status === 0,
     exitCode: child.status,
     stdout: String(child.stdout ?? '').trim().split(/\r?\n/).slice(-3).join('\n'),

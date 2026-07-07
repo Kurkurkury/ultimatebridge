@@ -7,6 +7,7 @@ import {
   formatDeliveryResponse
 } from '../delivery-queue.js';
 import { buildArtifactOpenPlan, formatArtifactOpenPlan } from '../artifact-open-plan.js';
+import { buildCommandTemplateLibrary, formatCommandTemplateLibrary, getCommandTemplateById } from '../command-templates.js';
 import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
 import { buildDiffViewerState, formatDiffViewerState } from '../diff-viewer.js';
 import {
@@ -22,6 +23,7 @@ const LAST_APPLY_BLOCK_KEY = 'ultimatebridgeLastApplyBlockState';
 
 const status = document.getElementById('status');
 const manualSendGuard = document.getElementById('manual-send-guard');
+const commandTemplates = document.getElementById('command-templates');
 const sessionSummary = document.getElementById('session-summary');
 const finalReviewChecklist = document.getElementById('final-review-checklist');
 const roundtripStatus = document.getElementById('roundtrip-status');
@@ -35,6 +37,8 @@ const runSmoke = document.getElementById('run-smoke');
 const detectLatest = document.getElementById('detect-latest');
 const refreshQueue = document.getElementById('refresh-queue');
 const clearQueue = document.getElementById('clear-queue');
+const showCommandTemplates = document.getElementById('show-command-templates');
+const copyRecommendedCommandTemplate = document.getElementById('copy-recommended-command-template');
 const showSessionSummary = document.getElementById('show-session-summary');
 const copySessionSummary = document.getElementById('copy-session-summary');
 const showPreviewApply = document.getElementById('show-preview-apply');
@@ -56,6 +60,10 @@ function writeStatus(value) {
 
 function writeManualSendGuard(value = buildManualSendGuardText()) {
   manualSendGuard.textContent = value;
+}
+
+function writeCommandTemplates(value) {
+  commandTemplates.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeSessionSummary(value) {
@@ -136,6 +144,14 @@ async function persistApplyBlockState(block) {
   return state;
 }
 
+async function updateCommandTemplates(currentQueue) {
+  const insertion = await getStorageValue(LAST_INSERTION_KEY);
+  const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
+  const library = buildCommandTemplateLibrary(currentQueue, insertion, applyBlockState);
+  writeCommandTemplates(formatCommandTemplateLibrary(library));
+  return library;
+}
+
 async function updateSessionSummary(currentQueue) {
   const insertion = await getStorageValue(LAST_INSERTION_KEY);
   const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
@@ -175,6 +191,7 @@ async function loadQueue() {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_DELIVERY_QUEUE' });
   if (!response?.ok) {
     writeQueue(response?.error ?? 'Could not load delivery queue.');
+    await updateCommandTemplates([]);
     await updateSessionSummary([]);
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
@@ -184,6 +201,7 @@ async function loadQueue() {
   }
   const currentQueue = response.queue ?? [];
   writeQueue(formatDeliveryQueue(currentQueue));
+  await updateCommandTemplates(currentQueue);
   await updateSessionSummary(currentQueue);
   await updateRoundtripPanel(currentQueue);
   updateDiffPreview(currentQueue);
@@ -204,6 +222,16 @@ async function loadUploadPlan() {
 async function getLatestPreviewItem() {
   const currentQueue = await loadQueue();
   return findLatestPreviewQueueItem(currentQueue);
+}
+
+async function showLatestCommandTemplates() {
+  const currentQueue = await loadQueue();
+  const insertion = await getStorageValue(LAST_INSERTION_KEY);
+  const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
+  const library = buildCommandTemplateLibrary(currentQueue, insertion, applyBlockState);
+  const text = formatCommandTemplateLibrary(library);
+  writeCommandTemplates(text);
+  return { library, text };
 }
 
 async function showLatestSessionSummary() {
@@ -315,6 +343,7 @@ clearQueue.addEventListener('click', async () => {
     writeSafeChangeBlock('No SAFE_CHANGE apply block prepared.');
     writeUploadPlan('No artifact upload plan prepared.');
     writeManualSendGuard();
+    await updateCommandTemplates([]);
     await updateSessionSummary([]);
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
@@ -323,6 +352,30 @@ clearQueue.addEventListener('click', async () => {
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
+  }
+});
+
+showCommandTemplates.addEventListener('click', async () => {
+  try {
+    await showLatestCommandTemplates();
+    writeStatus('Command templates loaded.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copyRecommendedCommandTemplate.addEventListener('click', async () => {
+  try {
+    const { library } = await showLatestCommandTemplates();
+    const template = getCommandTemplateById(library, library.nextRecommendedTemplateId);
+    if (!template?.copyText) {
+      writeStatus('No recommended command template is available.');
+      return;
+    }
+    await navigator.clipboard.writeText(template.copyText);
+    writeStatus(`Recommended command template copied: ${template.id}`);
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
   }
 });
 

@@ -35,6 +35,7 @@
     "smoke:browser-template-selection-ui": "node scripts/smoke-browser-template-selection-ui.mjs",
     "smoke:browser-project-workflow-panel": "node scripts/smoke-browser-project-workflow-panel.mjs",
     "smoke:local-diagnostics": "node scripts/smoke-local-diagnostics.mjs",
+    "smoke:final-docs-freeze": "node scripts/smoke-final-docs-freeze.mjs",
     "diagnose:local": "node scripts/diagnose-local.mjs",
     "verify:local": "node scripts/verify-local.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",

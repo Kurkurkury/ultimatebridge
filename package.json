@@ -28,6 +28,7 @@
     "smoke:browser-final-review-checklist": "node scripts/smoke-browser-final-review-checklist.mjs",
     "smoke:browser-session-summary": "node scripts/smoke-browser-session-summary.mjs",
     "smoke:browser-command-templates": "node scripts/smoke-browser-command-template-library.mjs",
+    "smoke:browser-project-root-memory": "node scripts/smoke-browser-project-root-memory.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

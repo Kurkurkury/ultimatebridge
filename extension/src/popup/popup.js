@@ -21,16 +21,19 @@ import {
   formatProjectRootMemory,
   mergeProjectRootMemory
 } from '../project-root-memory.js';
+import { buildProjectRootLabelMap, buildProjectRootLabels, formatProjectRootLabels } from '../project-root-labels.js';
 import { buildRoundtripPanelState, formatRoundtripPanelState } from '../roundtrip-proof.js';
 import { buildBrowserSessionSummary, formatBrowserSessionSummary } from '../session-summary.js';
 
 const LAST_INSERTION_KEY = 'ultimatebridgeLastApplyInsertion';
 const LAST_APPLY_BLOCK_KEY = 'ultimatebridgeLastApplyBlockState';
 const PROJECT_ROOT_MEMORY_KEY = 'ultimatebridgeProjectRootMemory';
+const PROJECT_ROOT_LABELS_KEY = 'ultimatebridgeProjectRootLabels';
 
 const status = document.getElementById('status');
 const manualSendGuard = document.getElementById('manual-send-guard');
 const projectRootMemory = document.getElementById('project-root-memory');
+const projectRootLabels = document.getElementById('project-root-labels');
 const commandTemplates = document.getElementById('command-templates');
 const sessionSummary = document.getElementById('session-summary');
 const finalReviewChecklist = document.getElementById('final-review-checklist');
@@ -47,6 +50,8 @@ const refreshQueue = document.getElementById('refresh-queue');
 const clearQueue = document.getElementById('clear-queue');
 const showProjectRootMemory = document.getElementById('show-project-root-memory');
 const copyPreviewTemplateFromRootMemory = document.getElementById('copy-preview-template-from-root-memory');
+const showProjectRootLabels = document.getElementById('show-project-root-labels');
+const copyProjectRootLabelMap = document.getElementById('copy-project-root-label-map');
 const clearProjectRootMemory = document.getElementById('clear-project-root-memory');
 const showCommandTemplates = document.getElementById('show-command-templates');
 const copyRecommendedCommandTemplate = document.getElementById('copy-recommended-command-template');
@@ -75,6 +80,10 @@ function writeManualSendGuard(value = buildManualSendGuardText()) {
 
 function writeProjectRootMemory(value) {
   projectRootMemory.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function writeProjectRootLabels(value) {
+  projectRootLabels.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeCommandTemplates(value) {
@@ -159,12 +168,20 @@ async function persistApplyBlockState(block) {
   return state;
 }
 
+async function updateProjectRootLabels(memory) {
+  const customLabels = await getStorageValue(PROJECT_ROOT_LABELS_KEY) ?? {};
+  const labels = buildProjectRootLabels(memory, customLabels);
+  writeProjectRootLabels(formatProjectRootLabels(labels));
+  return labels;
+}
+
 async function updateProjectRootMemory(currentQueue) {
   const storedRoots = await getStorageValue(PROJECT_ROOT_MEMORY_KEY) ?? [];
   const mergedRoots = mergeProjectRootMemory(currentQueue, storedRoots);
   await setStorageValue(PROJECT_ROOT_MEMORY_KEY, mergedRoots);
   const memory = buildProjectRootMemory([], mergedRoots);
   writeProjectRootMemory(formatProjectRootMemory(memory));
+  await updateProjectRootLabels(memory);
   return memory;
 }
 
@@ -256,7 +273,17 @@ async function showLatestProjectRootMemory() {
   const memory = buildProjectRootMemory(currentQueue, storedRoots);
   const text = formatProjectRootMemory(memory);
   writeProjectRootMemory(text);
+  await updateProjectRootLabels(memory);
   return { memory, text };
+}
+
+async function showLatestProjectRootLabels() {
+  const { memory } = await showLatestProjectRootMemory();
+  const customLabels = await getStorageValue(PROJECT_ROOT_LABELS_KEY) ?? {};
+  const labels = buildProjectRootLabels(memory, customLabels);
+  const text = formatProjectRootLabels(labels);
+  writeProjectRootLabels(text);
+  return { labels, text };
 }
 
 async function showLatestCommandTemplates() {
@@ -385,7 +412,7 @@ clearQueue.addEventListener('click', async () => {
     updateDiffPreview([]);
     updateArtifactOpenPlan([]);
     await updateFinalReviewChecklist([]);
-    writeStatus('Delivery queue cleared. Project root memory was kept.');
+    writeStatus('Delivery queue cleared. Project root memory and labels were kept.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
   }
@@ -412,12 +439,32 @@ copyPreviewTemplateFromRootMemory.addEventListener('click', async () => {
   }
 });
 
+showProjectRootLabels.addEventListener('click', async () => {
+  try {
+    await showLatestProjectRootLabels();
+    writeStatus('Project root labels loaded.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copyProjectRootLabelMap.addEventListener('click', async () => {
+  try {
+    const { labels } = await showLatestProjectRootLabels();
+    await navigator.clipboard.writeText(JSON.stringify(buildProjectRootLabelMap(labels), null, 2));
+    writeStatus('Project root label map copied.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
 clearProjectRootMemory.addEventListener('click', async () => {
   try {
     await removeStorageValue(PROJECT_ROOT_MEMORY_KEY);
     const memory = buildProjectRootMemory([], []);
     writeProjectRootMemory(formatProjectRootMemory(memory));
-    writeStatus('Project root memory cleared.');
+    await updateProjectRootLabels(memory);
+    writeStatus('Project root memory cleared. Labels were kept.');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }

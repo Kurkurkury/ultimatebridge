@@ -99,7 +99,7 @@ const result = {
     jsHasCopyByIdHelper: popupJs.includes('copyCommandTemplateById'),
     jsUsesSelectedValue: popupJs.includes('commandTemplateSelect.value'),
     jsUsesRootAwareGetter: popupJs.includes('getRootAwareCommandTemplateById'),
-    jsStatusMentionsSelected: popupJs.includes('Selected root-aware command template copied'),
+    jsStatusMentionsSelected: popupJs.includes('${copyKind} root-aware command template copied') || popupJs.includes('root-aware command template copied'),
     jsDoesNotAutoSubmitSelected: !popupJs.includes('copySelectedCommandTemplate.click()'),
     selectedTemplatesAllFound: selectedTemplates.every(Boolean),
     selectedTemplatesAllCopyable: selectedTemplates.every((template) => Boolean(template?.copyText)),

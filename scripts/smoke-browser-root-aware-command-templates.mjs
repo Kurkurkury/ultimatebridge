@@ -56,6 +56,8 @@ const applyParsed = JSON.parse(applyTemplate.copyText);
 
 const applyResponse = await handleMessage({ body: applyRequest });
 const afterApply = await fs.readFile(targetPath, 'utf8');
+const expectedStoredLabel = storedLibrary.selectedLabel;
+const expectedQueueLabel = queueLibrary.selectedLabel;
 
 const result = {
   root,
@@ -90,12 +92,12 @@ const result = {
   staticChecks: {
     textShowsHeader: queueText.includes('ULTIMATEBRIDGE ROOT-AWARE COMMAND TEMPLATE LIBRARY'),
     textShowsRootAware: queueText.includes('rootAware=true'),
-    textShowsSelectedLabel: queueText.includes('selectedLabel=P024 UltimateBridge'),
+    textShowsSelectedLabel: queueText.includes(`selectedLabel=${expectedQueueLabel}`),
     previewUsesRememberedRoot: storedPreviewParsed.approvedProjectRoot === root,
-    previewShowsProjectLabel: storedPreviewParsed.projectLabel === 'P024 UltimateBridge',
+    previewShowsProjectLabel: storedPreviewParsed.projectLabel === expectedStoredLabel,
     applyTemplateManualOnly: applyParsed.sendBehavior === 'USER_MUST_REVIEW_AND_SEND_MANUALLY',
     applyTemplateIsSafeChange: applyParsed.mode === 'SAFE_CHANGE',
-    applyTemplateHasProjectLabel: applyParsed.projectLabel === 'P024 UltimateBridge'
+    applyTemplateHasProjectLabel: applyParsed.projectLabel === expectedQueueLabel
   }
 };
 
@@ -108,13 +110,13 @@ if (
   afterPreview !== 'before root aware templates' ||
   afterApply !== 'after root aware templates' ||
   !storedLibrary.rootAware ||
-  storedLibrary.selectedLabel !== 'P024 UltimateBridge' ||
+  !expectedStoredLabel ||
   storedPreviewParsed.approvedProjectRoot !== root ||
-  storedPreviewParsed.projectLabel !== 'P024 UltimateBridge' ||
+  storedPreviewParsed.projectLabel !== expectedStoredLabel ||
   !queueLibrary.rootAware ||
-  queueLibrary.selectedLabel !== 'P024 UltimateBridge' ||
+  !expectedQueueLabel ||
   !applyTemplate.ready ||
-  applyParsed.projectLabel !== 'P024 UltimateBridge' ||
+  applyParsed.projectLabel !== expectedQueueLabel ||
   applyParsed.mode !== 'SAFE_CHANGE' ||
   applyParsed.sendBehavior !== 'USER_MUST_REVIEW_AND_SEND_MANUALLY' ||
   !Object.values(result.staticChecks).every(Boolean)

@@ -1,4 +1,5 @@
-import { sendNativeMessage } from '../transport/native-client.js';
+import { buildBrowserNativeConnectionDiagnostics } from '../connection-diagnostics.js';
+import { sendNativeMessage, NATIVE_HOST_NAME } from '../transport/native-client.js';
 import {
   DELIVERY_QUEUE_KEY,
   LAST_DELIVERY_KEY,
@@ -26,6 +27,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     sendNativeMessage({ body })
       .then(async (response) => sendResponse({ ok: true, response, deliveryQueueItem: await recordDelivery(response) }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message?.type === 'ULTIMATEBRIDGE_GET_CONNECTION_DIAGNOSTICS') {
+    getConnectionDiagnostics()
+      .then((diagnostics) => sendResponse({ ok: true, diagnostics }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
@@ -79,6 +87,22 @@ async function recordDelivery(response) {
 async function getDeliveryQueue() {
   const stored = await chrome.storage.local.get(DELIVERY_QUEUE_KEY);
   return Array.isArray(stored[DELIVERY_QUEUE_KEY]) ? stored[DELIVERY_QUEUE_KEY] : [];
+}
+
+async function getConnectionDiagnostics() {
+  const queue = await getDeliveryQueue();
+  const uploadPlan = await getArtifactUploadPlan();
+  return buildBrowserNativeConnectionDiagnostics({
+    nativeHostName: NATIVE_HOST_NAME,
+    chromeRuntimeAvailable: Boolean(chrome?.runtime),
+    nativeMessageApiAvailable: typeof chrome?.runtime?.sendNativeMessage === 'function',
+    serviceWorkerReachable: true,
+    manifest: chrome.runtime.getManifest(),
+    extensionId: chrome.runtime.id,
+    deliveryQueueLength: queue.length,
+    uploadPlanPresent: Boolean(uploadPlan),
+    doesNotSendNativeMessage: true
+  });
 }
 
 async function prepareLatestArtifactUploadPlan() {

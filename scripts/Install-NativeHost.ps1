@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$HostName = 'com.ultimatebridge.native_host'
+$HostName = 'com.ultimatebridge.host'
 $InstallRoot = Join-Path $env:LOCALAPPDATA 'UltimateBridge\NativeHost'
 $LauncherPath = Join-Path $InstallRoot 'ultimatebridge-native-host.cmd'
 $ManifestPath = Join-Path $InstallRoot 'ultimatebridge-native-host-manifest.json'

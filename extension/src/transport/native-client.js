@@ -1,4 +1,4 @@
-const NATIVE_HOST_NAME = 'com.ultimatebridge.host';
+export const NATIVE_HOST_NAME = 'com.ultimatebridge.host';
 
 export function sendNativeMessage(payload) {
   return new Promise((resolve, reject) => {

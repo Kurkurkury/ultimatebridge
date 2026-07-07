@@ -12,7 +12,7 @@ $DefaultPlanPath = Join-Path $ArtifactsDir 'native-host-extension-id-plan.json'
 $OutputPlanPath = if ($PlanPath) { $PlanPath } else { $DefaultPlanPath }
 $InstallRoot = Join-Path $env:LOCALAPPDATA 'UltimateBridge\NativeHost'
 $ManifestPath = Join-Path $InstallRoot 'ultimatebridge-native-host-manifest.json'
-$HostName = 'com.ultimatebridge.native_host'
+$HostName = 'com.ultimatebridge.host'
 $LauncherPath = Join-Path $InstallRoot 'ultimatebridge-native-host.cmd'
 $AllowedOrigin = "chrome-extension://$ExtensionId/"
 

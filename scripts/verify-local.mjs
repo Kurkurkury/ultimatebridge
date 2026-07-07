@@ -10,6 +10,7 @@ const markdownPath = path.join(artifactDir, 'latest.md');
 
 const commands = [
   ['npm', ['test']],
+  ['npm', ['run', 'smoke:native-host-extension-id-helper']],
   ['npm', ['run', 'smoke:installer-launcher']],
   ['npm', ['run', 'smoke:final-docs-freeze']],
   ['npm', ['run', 'smoke:local-diagnostics']],

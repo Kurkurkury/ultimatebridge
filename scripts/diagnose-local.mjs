@@ -52,9 +52,9 @@ const requiredScripts = [
 ];
 
 const commandChecks = [
-  { command: runtimeCommand('node'), args: ['--version'], label: 'node --version' },
-  { command: runtimeCommand('npm'), args: ['--version'], label: 'npm --version' },
-  { command: 'pwsh', args: ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()'], label: 'pwsh -NoProfile -Command $PSVersionTable.PSVersion.ToString()' }
+  commandSpec('node --version'),
+  commandSpec('npm --version'),
+  commandSpec('pwsh -NoProfile -Command $PSVersionTable.PSVersion.ToString()')
 ];
 
 const packageJson = readJson('package.json');
@@ -68,7 +68,7 @@ const scriptChecks = requiredScripts.map((scriptName) => ({
   exists: Object.prototype.hasOwnProperty.call(scripts, scriptName),
   command: scripts[scriptName] ?? null
 }));
-const commandResults = commandChecks.map((item) => checkCommand(item.command, item.args, item.label));
+const commandResults = commandChecks.map((item) => checkCommand(item));
 
 const popupHtml = readText('extension/src/popup/popup.html');
 const popupJs = readText('extension/src/popup/popup.js');
@@ -137,13 +137,19 @@ function readText(filePath) {
   }
 }
 
-function runtimeCommand(command) {
-  if (process.platform !== 'win32') return command;
-  if (command === 'npm') return 'npm.cmd';
-  return command;
+function commandSpec(commandLine) {
+  if (process.platform !== 'win32') {
+    const [command, ...args] = commandLine.split(' ');
+    return { command, args, label: commandLine };
+  }
+  return {
+    command: process.env.ComSpec || 'cmd.exe',
+    args: ['/d', '/s', '/c', commandLine],
+    label: commandLine
+  };
 }
 
-function checkCommand(command, args, label = [command, ...args].join(' ')) {
+function checkCommand({ command, args, label }) {
   const child = spawnSync(command, args, {
     cwd: process.cwd(),
     encoding: 'utf8',

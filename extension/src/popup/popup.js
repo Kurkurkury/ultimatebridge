@@ -9,12 +9,19 @@ import {
 import { buildArtifactOpenPlan, formatArtifactOpenPlan } from '../artifact-open-plan.js';
 import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
 import { buildDiffViewerState, formatDiffViewerState } from '../diff-viewer.js';
+import {
+  buildApplyBlockStateFromRequest,
+  buildFinalReviewChecklist,
+  formatFinalReviewChecklist
+} from '../final-review-checklist.js';
 import { buildRoundtripPanelState, formatRoundtripPanelState } from '../roundtrip-proof.js';
 
 const LAST_INSERTION_KEY = 'ultimatebridgeLastApplyInsertion';
+const LAST_APPLY_BLOCK_KEY = 'ultimatebridgeLastApplyBlockState';
 
 const status = document.getElementById('status');
 const manualSendGuard = document.getElementById('manual-send-guard');
+const finalReviewChecklist = document.getElementById('final-review-checklist');
 const roundtripStatus = document.getElementById('roundtrip-status');
 const diffPreview = document.getElementById('diff-preview');
 const artifactOpenPlan = document.getElementById('artifact-open-plan');
@@ -31,6 +38,8 @@ const copyPreviewApply = document.getElementById('copy-preview-apply');
 const buildSafeChange = document.getElementById('build-safe-change');
 const copySafeChange = document.getElementById('copy-safe-change');
 const insertSafeChange = document.getElementById('insert-safe-change');
+const showFinalReviewChecklist = document.getElementById('show-final-review-checklist');
+const copyFinalReviewChecklist = document.getElementById('copy-final-review-checklist');
 const showArtifactOpenPlan = document.getElementById('show-artifact-open-plan');
 const copyArtifactOpenPlan = document.getElementById('copy-artifact-open-plan');
 const prepareUpload = document.getElementById('prepare-upload');
@@ -43,6 +52,10 @@ function writeStatus(value) {
 
 function writeManualSendGuard(value = buildManualSendGuardText()) {
   manualSendGuard.textContent = value;
+}
+
+function writeFinalReviewChecklist(value) {
+  finalReviewChecklist.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeRoundtripStatus(value) {
@@ -100,6 +113,21 @@ async function getActiveTab() {
   return tab;
 }
 
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function persistApplyBlockState(block) {
+  if (!block.trim().startsWith('{')) return null;
+  const applyRequest = JSON.parse(block);
+  const blockHash = await sha256Hex(block);
+  const state = buildApplyBlockStateFromRequest(applyRequest, blockHash);
+  await setStorageValue(LAST_APPLY_BLOCK_KEY, { ...state, createdAt: new Date().toISOString() });
+  return state;
+}
+
 async function updateRoundtripPanel(currentQueue) {
   const insertion = await getStorageValue(LAST_INSERTION_KEY);
   const state = buildRoundtripPanelState(currentQueue, insertion);
@@ -119,6 +147,14 @@ function updateArtifactOpenPlan(currentQueue) {
   return plan;
 }
 
+async function updateFinalReviewChecklist(currentQueue) {
+  const insertion = await getStorageValue(LAST_INSERTION_KEY);
+  const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
+  const checklist = buildFinalReviewChecklist(currentQueue, insertion, applyBlockState);
+  writeFinalReviewChecklist(formatFinalReviewChecklist(checklist));
+  return checklist;
+}
+
 async function loadQueue() {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_DELIVERY_QUEUE' });
   if (!response?.ok) {
@@ -126,6 +162,7 @@ async function loadQueue() {
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
     updateArtifactOpenPlan([]);
+    await updateFinalReviewChecklist([]);
     return [];
   }
   const currentQueue = response.queue ?? [];
@@ -133,6 +170,7 @@ async function loadQueue() {
   await updateRoundtripPanel(currentQueue);
   updateDiffPreview(currentQueue);
   updateArtifactOpenPlan(currentQueue);
+  await updateFinalReviewChecklist(currentQueue);
   return currentQueue;
 }
 
@@ -162,6 +200,8 @@ async function showLatestSafeChangeApplyBlock() {
   const block = buildSafeChangeApplyBlock(previewItem);
   writeManualSendGuard();
   writeSafeChangeBlock(block);
+  await persistApplyBlockState(block);
+  await loadQueue();
   return block;
 }
 
@@ -170,6 +210,16 @@ async function showLatestArtifactOpenPlan() {
   const plan = buildArtifactOpenPlan(currentQueue);
   const text = formatArtifactOpenPlan(plan);
   writeArtifactOpenPlan(text);
+  return text;
+}
+
+async function showLatestFinalReviewChecklist() {
+  const currentQueue = await loadQueue();
+  const insertion = await getStorageValue(LAST_INSERTION_KEY);
+  const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
+  const checklist = buildFinalReviewChecklist(currentQueue, insertion, applyBlockState);
+  const text = formatFinalReviewChecklist(checklist);
+  writeFinalReviewChecklist(text);
   return text;
 }
 
@@ -231,6 +281,7 @@ clearQueue.addEventListener('click', async () => {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_CLEAR_DELIVERY_QUEUE' });
   if (response?.ok) {
     await removeStorageValue(LAST_INSERTION_KEY);
+    await removeStorageValue(LAST_APPLY_BLOCK_KEY);
     writeQueue('Delivery queue is empty.');
     writePreviewApply('No preview apply requirement available.');
     writeSafeChangeBlock('No SAFE_CHANGE apply block prepared.');
@@ -239,6 +290,7 @@ clearQueue.addEventListener('click', async () => {
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
     updateArtifactOpenPlan([]);
+    await updateFinalReviewChecklist([]);
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
@@ -295,6 +347,25 @@ insertSafeChange.addEventListener('click', async () => {
     } else {
       writeStatus(`Could not insert SAFE_CHANGE apply block.\nreason=${result.reason ?? 'UNKNOWN'}\n${result.message ?? ''}`);
     }
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+showFinalReviewChecklist.addEventListener('click', async () => {
+  try {
+    await showLatestFinalReviewChecklist();
+    writeStatus('Final review checklist loaded.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copyFinalReviewChecklist.addEventListener('click', async () => {
+  try {
+    const text = await showLatestFinalReviewChecklist();
+    await navigator.clipboard.writeText(text);
+    writeStatus('Final review checklist copied to clipboard.');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }

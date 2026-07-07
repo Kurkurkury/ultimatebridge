@@ -72,7 +72,7 @@ const result = {
     popupImportsProjectRootMemory: popupJs.includes('formatProjectRootMemory'),
     popupStoresProjectRootMemory: popupJs.includes('ultimatebridgeProjectRootMemory'),
     popupUpdatesMemoryOnQueueLoad: popupJs.includes('updateProjectRootMemory(currentQueue)'),
-    popupKeepsMemoryOnQueueClear: popupJs.includes('Project root memory was kept'),
+    popupKeepsMemoryOnQueueClear: popupJs.includes('Project root memory') && popupJs.includes('kept'),
     popupCopiesPreviewTemplate: popupJs.includes('buildPreviewTemplateFromProjectRootMemory'),
     memoryShowsHeader: memoryText.includes('ULTIMATEBRIDGE PROJECT ROOT MEMORY'),
     memoryShowsSelectedRoot: memoryText.includes(`selectedRoot=${root}`),

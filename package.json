@@ -29,6 +29,7 @@
     "smoke:browser-session-summary": "node scripts/smoke-browser-session-summary.mjs",
     "smoke:browser-command-templates": "node scripts/smoke-browser-command-template-library.mjs",
     "smoke:browser-project-root-memory": "node scripts/smoke-browser-project-root-memory.mjs",
+    "smoke:browser-project-root-labels": "node scripts/smoke-browser-project-root-labels.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

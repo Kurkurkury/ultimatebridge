@@ -32,6 +32,7 @@
     "smoke:browser-project-root-labels": "node scripts/smoke-browser-project-root-labels.mjs",
     "smoke:browser-root-aware-command-templates": "node scripts/smoke-browser-root-aware-command-templates.mjs",
     "smoke:browser-root-aware-popup-wiring": "node scripts/smoke-browser-root-aware-popup-wiring.mjs",
+    "verify:local": "node scripts/verify-local.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

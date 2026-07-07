@@ -1,3 +1,4 @@
+import { formatBrowserNativeConnectionDiagnostics } from '../connection-diagnostics.js';
 import {
   buildManualSendGuardText,
   buildPreviewApplyHint,
@@ -35,6 +36,7 @@ const PROJECT_ROOT_MEMORY_KEY = 'ultimatebridgeProjectRootMemory';
 const PROJECT_ROOT_LABELS_KEY = 'ultimatebridgeProjectRootLabels';
 
 const status = document.getElementById('status');
+const connectionDiagnostics = document.getElementById('connection-diagnostics');
 const manualSendGuard = document.getElementById('manual-send-guard');
 const projectRootMemory = document.getElementById('project-root-memory');
 const projectRootLabels = document.getElementById('project-root-labels');
@@ -49,6 +51,8 @@ const previewApply = document.getElementById('preview-apply');
 const safeChangeBlock = document.getElementById('safe-change-block');
 const uploadPlan = document.getElementById('upload-plan');
 const runSmoke = document.getElementById('run-smoke');
+const showConnectionDiagnostics = document.getElementById('show-connection-diagnostics');
+const copyConnectionDiagnostics = document.getElementById('copy-connection-diagnostics');
 const detectLatest = document.getElementById('detect-latest');
 const refreshQueue = document.getElementById('refresh-queue');
 const clearQueue = document.getElementById('clear-queue');
@@ -78,6 +82,10 @@ const clearUploadPlan = document.getElementById('clear-upload-plan');
 
 function writeStatus(value) {
   status.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function writeConnectionDiagnostics(value) {
+  connectionDiagnostics.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeManualSendGuard(value = buildManualSendGuardText()) {
@@ -275,6 +283,18 @@ async function loadUploadPlan() {
   writeUploadPlan(formatArtifactUploadPlan(response.uploadPlan));
 }
 
+async function loadConnectionDiagnostics() {
+  const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_CONNECTION_DIAGNOSTICS' });
+  if (!response?.ok) {
+    const text = `Browser/native diagnostics unavailable.\nerror=${response?.error ?? 'UNKNOWN'}`;
+    writeConnectionDiagnostics(text);
+    return text;
+  }
+  const text = formatBrowserNativeConnectionDiagnostics(response.diagnostics);
+  writeConnectionDiagnostics(text);
+  return text;
+}
+
 async function getLatestPreviewItem() {
   const currentQueue = await loadQueue();
   return findLatestPreviewQueueItem(currentQueue);
@@ -394,6 +414,25 @@ runSmoke.addEventListener('click', async () => {
     const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_RUN_READONLY_SMOKE' });
     writeStatus(formatDeliveryResponse(response));
     await loadQueue();
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+showConnectionDiagnostics.addEventListener('click', async () => {
+  try {
+    await loadConnectionDiagnostics();
+    writeStatus('Browser/native diagnostics loaded. Report-only; no native message was sent.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copyConnectionDiagnostics.addEventListener('click', async () => {
+  try {
+    const text = await loadConnectionDiagnostics();
+    await navigator.clipboard.writeText(text);
+    writeStatus('Browser/native diagnostics copied to clipboard. Review before sharing.');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }

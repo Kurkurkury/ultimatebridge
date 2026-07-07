@@ -7,7 +7,6 @@ import {
   formatDeliveryResponse
 } from '../delivery-queue.js';
 import { buildArtifactOpenPlan, formatArtifactOpenPlan } from '../artifact-open-plan.js';
-import { buildCommandTemplateLibrary, formatCommandTemplateLibrary, getCommandTemplateById } from '../command-templates.js';
 import { formatArtifactUploadPlan } from '../artifact-upload-plan.js';
 import { buildDiffViewerState, formatDiffViewerState } from '../diff-viewer.js';
 import {
@@ -22,6 +21,11 @@ import {
   mergeProjectRootMemory
 } from '../project-root-memory.js';
 import { buildProjectRootLabelMap, buildProjectRootLabels, formatProjectRootLabels } from '../project-root-labels.js';
+import {
+  buildRootAwareCommandTemplateLibrary,
+  formatRootAwareCommandTemplateLibrary,
+  getRootAwareCommandTemplateById
+} from '../root-aware-command-templates.js';
 import { buildRoundtripPanelState, formatRoundtripPanelState } from '../roundtrip-proof.js';
 import { buildBrowserSessionSummary, formatBrowserSessionSummary } from '../session-summary.js';
 
@@ -185,11 +189,18 @@ async function updateProjectRootMemory(currentQueue) {
   return memory;
 }
 
+async function buildCommandTemplateRootContext(currentQueue) {
+  const storedRoots = await getStorageValue(PROJECT_ROOT_MEMORY_KEY) ?? [];
+  const customLabels = await getStorageValue(PROJECT_ROOT_LABELS_KEY) ?? {};
+  return { storedRoots, customLabels };
+}
+
 async function updateCommandTemplates(currentQueue) {
   const insertion = await getStorageValue(LAST_INSERTION_KEY);
   const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
-  const library = buildCommandTemplateLibrary(currentQueue, insertion, applyBlockState);
-  writeCommandTemplates(formatCommandTemplateLibrary(library));
+  const rootContext = await buildCommandTemplateRootContext(currentQueue);
+  const library = buildRootAwareCommandTemplateLibrary(currentQueue, insertion, applyBlockState, rootContext);
+  writeCommandTemplates(formatRootAwareCommandTemplateLibrary(library));
   return library;
 }
 
@@ -290,8 +301,9 @@ async function showLatestCommandTemplates() {
   const currentQueue = await loadQueue();
   const insertion = await getStorageValue(LAST_INSERTION_KEY);
   const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
-  const library = buildCommandTemplateLibrary(currentQueue, insertion, applyBlockState);
-  const text = formatCommandTemplateLibrary(library);
+  const rootContext = await buildCommandTemplateRootContext(currentQueue);
+  const library = buildRootAwareCommandTemplateLibrary(currentQueue, insertion, applyBlockState, rootContext);
+  const text = formatRootAwareCommandTemplateLibrary(library);
   writeCommandTemplates(text);
   return { library, text };
 }
@@ -473,7 +485,7 @@ clearProjectRootMemory.addEventListener('click', async () => {
 showCommandTemplates.addEventListener('click', async () => {
   try {
     await showLatestCommandTemplates();
-    writeStatus('Command templates loaded.');
+    writeStatus('Root-aware command templates loaded.');
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }
@@ -482,13 +494,14 @@ showCommandTemplates.addEventListener('click', async () => {
 copyRecommendedCommandTemplate.addEventListener('click', async () => {
   try {
     const { library } = await showLatestCommandTemplates();
-    const template = getCommandTemplateById(library, library.nextRecommendedTemplateId);
+    const template = getRootAwareCommandTemplateById(library, library.nextRecommendedTemplateId);
     if (!template?.copyText) {
       writeStatus('No recommended command template is available.');
       return;
     }
     await navigator.clipboard.writeText(template.copyText);
-    writeStatus(`Recommended command template copied: ${template.id}`);
+    const labelSuffix = template.rootLabel ? ` for ${template.rootLabel}` : '';
+    writeStatus(`Recommended root-aware command template copied: ${template.id}${labelSuffix}`);
   } catch (error) {
     writeStatus(`ERROR: ${error.message}`);
   }

@@ -26,6 +26,7 @@
     "smoke:browser-diff-viewer": "node scripts/smoke-browser-diff-viewer.mjs",
     "smoke:browser-artifact-open-plan": "node scripts/smoke-browser-artifact-open-plan.mjs",
     "smoke:browser-final-review-checklist": "node scripts/smoke-browser-final-review-checklist.mjs",
+    "smoke:browser-session-summary": "node scripts/smoke-browser-session-summary.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
     "ci": "npm run check:schemas && npm test"
   },

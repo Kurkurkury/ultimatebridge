@@ -6,6 +6,15 @@
 </head>
 <body>
   <h3>UltimateBridge</h3>
+  <h4>Project workflow</h4>
+  <ol id="project-workflow-panel">
+    <li><button id="workflow-show-project">1. Project: show remembered root</button></li>
+    <li><button id="workflow-copy-analyze">2. Analyze: copy READ_ONLY template</button></li>
+    <li><button id="workflow-copy-preview">3. Preview: copy SAFE_CHANGE_PREVIEW template</button></li>
+    <li><button id="workflow-build-apply">4. Apply: build SAFE_CHANGE apply block</button></li>
+    <li><button id="workflow-copy-proof">5. Proof: copy session summary</button></li>
+  </ol>
+  <pre id="project-workflow-status">Workflow ready. Every step is review-first and manual-send gated.</pre>
   <button id="run-smoke">Run native read-only smoke</button>
   <button id="detect-latest">Run latest ChatGPT bridge block</button>
   <button id="refresh-queue">Refresh delivery queue</button>
@@ -71,5 +80,6 @@
   <h4>User-confirmed artifact upload plan</h4>
   <pre id="upload-plan">No artifact upload plan prepared.</pre>
   <script type="module" src="popup.js"></script>
+  <script type="module" src="project-workflow-panel.js"></script>
 </body>
 </html>

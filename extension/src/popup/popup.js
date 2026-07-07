@@ -15,12 +15,14 @@ import {
   formatFinalReviewChecklist
 } from '../final-review-checklist.js';
 import { buildRoundtripPanelState, formatRoundtripPanelState } from '../roundtrip-proof.js';
+import { buildBrowserSessionSummary, formatBrowserSessionSummary } from '../session-summary.js';
 
 const LAST_INSERTION_KEY = 'ultimatebridgeLastApplyInsertion';
 const LAST_APPLY_BLOCK_KEY = 'ultimatebridgeLastApplyBlockState';
 
 const status = document.getElementById('status');
 const manualSendGuard = document.getElementById('manual-send-guard');
+const sessionSummary = document.getElementById('session-summary');
 const finalReviewChecklist = document.getElementById('final-review-checklist');
 const roundtripStatus = document.getElementById('roundtrip-status');
 const diffPreview = document.getElementById('diff-preview');
@@ -33,6 +35,8 @@ const runSmoke = document.getElementById('run-smoke');
 const detectLatest = document.getElementById('detect-latest');
 const refreshQueue = document.getElementById('refresh-queue');
 const clearQueue = document.getElementById('clear-queue');
+const showSessionSummary = document.getElementById('show-session-summary');
+const copySessionSummary = document.getElementById('copy-session-summary');
 const showPreviewApply = document.getElementById('show-preview-apply');
 const copyPreviewApply = document.getElementById('copy-preview-apply');
 const buildSafeChange = document.getElementById('build-safe-change');
@@ -52,6 +56,10 @@ function writeStatus(value) {
 
 function writeManualSendGuard(value = buildManualSendGuardText()) {
   manualSendGuard.textContent = value;
+}
+
+function writeSessionSummary(value) {
+  sessionSummary.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeFinalReviewChecklist(value) {
@@ -128,6 +136,14 @@ async function persistApplyBlockState(block) {
   return state;
 }
 
+async function updateSessionSummary(currentQueue) {
+  const insertion = await getStorageValue(LAST_INSERTION_KEY);
+  const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
+  const summary = buildBrowserSessionSummary(currentQueue, insertion, applyBlockState);
+  writeSessionSummary(formatBrowserSessionSummary(summary));
+  return summary;
+}
+
 async function updateRoundtripPanel(currentQueue) {
   const insertion = await getStorageValue(LAST_INSERTION_KEY);
   const state = buildRoundtripPanelState(currentQueue, insertion);
@@ -159,6 +175,7 @@ async function loadQueue() {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_DELIVERY_QUEUE' });
   if (!response?.ok) {
     writeQueue(response?.error ?? 'Could not load delivery queue.');
+    await updateSessionSummary([]);
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
     updateArtifactOpenPlan([]);
@@ -167,6 +184,7 @@ async function loadQueue() {
   }
   const currentQueue = response.queue ?? [];
   writeQueue(formatDeliveryQueue(currentQueue));
+  await updateSessionSummary(currentQueue);
   await updateRoundtripPanel(currentQueue);
   updateDiffPreview(currentQueue);
   updateArtifactOpenPlan(currentQueue);
@@ -186,6 +204,16 @@ async function loadUploadPlan() {
 async function getLatestPreviewItem() {
   const currentQueue = await loadQueue();
   return findLatestPreviewQueueItem(currentQueue);
+}
+
+async function showLatestSessionSummary() {
+  const currentQueue = await loadQueue();
+  const insertion = await getStorageValue(LAST_INSERTION_KEY);
+  const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
+  const summary = buildBrowserSessionSummary(currentQueue, insertion, applyBlockState);
+  const text = formatBrowserSessionSummary(summary);
+  writeSessionSummary(text);
+  return text;
 }
 
 async function showLatestPreviewApplyRequirement() {
@@ -287,6 +315,7 @@ clearQueue.addEventListener('click', async () => {
     writeSafeChangeBlock('No SAFE_CHANGE apply block prepared.');
     writeUploadPlan('No artifact upload plan prepared.');
     writeManualSendGuard();
+    await updateSessionSummary([]);
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
     updateArtifactOpenPlan([]);
@@ -294,6 +323,25 @@ clearQueue.addEventListener('click', async () => {
     writeStatus('Delivery queue cleared.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
+  }
+});
+
+showSessionSummary.addEventListener('click', async () => {
+  try {
+    await showLatestSessionSummary();
+    writeStatus('Session summary loaded.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copySessionSummary.addEventListener('click', async () => {
+  try {
+    const text = await showLatestSessionSummary();
+    await navigator.clipboard.writeText(text);
+    writeStatus('Session summary copied to clipboard.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
   }
 });
 

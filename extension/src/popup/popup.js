@@ -15,14 +15,22 @@ import {
   buildFinalReviewChecklist,
   formatFinalReviewChecklist
 } from '../final-review-checklist.js';
+import {
+  buildPreviewTemplateFromProjectRootMemory,
+  buildProjectRootMemory,
+  formatProjectRootMemory,
+  mergeProjectRootMemory
+} from '../project-root-memory.js';
 import { buildRoundtripPanelState, formatRoundtripPanelState } from '../roundtrip-proof.js';
 import { buildBrowserSessionSummary, formatBrowserSessionSummary } from '../session-summary.js';
 
 const LAST_INSERTION_KEY = 'ultimatebridgeLastApplyInsertion';
 const LAST_APPLY_BLOCK_KEY = 'ultimatebridgeLastApplyBlockState';
+const PROJECT_ROOT_MEMORY_KEY = 'ultimatebridgeProjectRootMemory';
 
 const status = document.getElementById('status');
 const manualSendGuard = document.getElementById('manual-send-guard');
+const projectRootMemory = document.getElementById('project-root-memory');
 const commandTemplates = document.getElementById('command-templates');
 const sessionSummary = document.getElementById('session-summary');
 const finalReviewChecklist = document.getElementById('final-review-checklist');
@@ -37,6 +45,9 @@ const runSmoke = document.getElementById('run-smoke');
 const detectLatest = document.getElementById('detect-latest');
 const refreshQueue = document.getElementById('refresh-queue');
 const clearQueue = document.getElementById('clear-queue');
+const showProjectRootMemory = document.getElementById('show-project-root-memory');
+const copyPreviewTemplateFromRootMemory = document.getElementById('copy-preview-template-from-root-memory');
+const clearProjectRootMemory = document.getElementById('clear-project-root-memory');
 const showCommandTemplates = document.getElementById('show-command-templates');
 const copyRecommendedCommandTemplate = document.getElementById('copy-recommended-command-template');
 const showSessionSummary = document.getElementById('show-session-summary');
@@ -60,6 +71,10 @@ function writeStatus(value) {
 
 function writeManualSendGuard(value = buildManualSendGuardText()) {
   manualSendGuard.textContent = value;
+}
+
+function writeProjectRootMemory(value) {
+  projectRootMemory.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 function writeCommandTemplates(value) {
@@ -144,6 +159,15 @@ async function persistApplyBlockState(block) {
   return state;
 }
 
+async function updateProjectRootMemory(currentQueue) {
+  const storedRoots = await getStorageValue(PROJECT_ROOT_MEMORY_KEY) ?? [];
+  const mergedRoots = mergeProjectRootMemory(currentQueue, storedRoots);
+  await setStorageValue(PROJECT_ROOT_MEMORY_KEY, mergedRoots);
+  const memory = buildProjectRootMemory([], mergedRoots);
+  writeProjectRootMemory(formatProjectRootMemory(memory));
+  return memory;
+}
+
 async function updateCommandTemplates(currentQueue) {
   const insertion = await getStorageValue(LAST_INSERTION_KEY);
   const applyBlockState = await getStorageValue(LAST_APPLY_BLOCK_KEY);
@@ -191,6 +215,7 @@ async function loadQueue() {
   const response = await sendRuntimeMessage({ type: 'ULTIMATEBRIDGE_GET_DELIVERY_QUEUE' });
   if (!response?.ok) {
     writeQueue(response?.error ?? 'Could not load delivery queue.');
+    await updateProjectRootMemory([]);
     await updateCommandTemplates([]);
     await updateSessionSummary([]);
     await updateRoundtripPanel([]);
@@ -201,6 +226,7 @@ async function loadQueue() {
   }
   const currentQueue = response.queue ?? [];
   writeQueue(formatDeliveryQueue(currentQueue));
+  await updateProjectRootMemory(currentQueue);
   await updateCommandTemplates(currentQueue);
   await updateSessionSummary(currentQueue);
   await updateRoundtripPanel(currentQueue);
@@ -222,6 +248,15 @@ async function loadUploadPlan() {
 async function getLatestPreviewItem() {
   const currentQueue = await loadQueue();
   return findLatestPreviewQueueItem(currentQueue);
+}
+
+async function showLatestProjectRootMemory() {
+  const currentQueue = await loadQueue();
+  const storedRoots = await getStorageValue(PROJECT_ROOT_MEMORY_KEY) ?? [];
+  const memory = buildProjectRootMemory(currentQueue, storedRoots);
+  const text = formatProjectRootMemory(memory);
+  writeProjectRootMemory(text);
+  return { memory, text };
 }
 
 async function showLatestCommandTemplates() {
@@ -343,15 +378,48 @@ clearQueue.addEventListener('click', async () => {
     writeSafeChangeBlock('No SAFE_CHANGE apply block prepared.');
     writeUploadPlan('No artifact upload plan prepared.');
     writeManualSendGuard();
+    await updateProjectRootMemory([]);
     await updateCommandTemplates([]);
     await updateSessionSummary([]);
     await updateRoundtripPanel([]);
     updateDiffPreview([]);
     updateArtifactOpenPlan([]);
     await updateFinalReviewChecklist([]);
-    writeStatus('Delivery queue cleared.');
+    writeStatus('Delivery queue cleared. Project root memory was kept.');
   } else {
     writeStatus(response?.error ?? 'Could not clear delivery queue.');
+  }
+});
+
+showProjectRootMemory.addEventListener('click', async () => {
+  try {
+    await showLatestProjectRootMemory();
+    writeStatus('Project root memory loaded.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+copyPreviewTemplateFromRootMemory.addEventListener('click', async () => {
+  try {
+    const { memory } = await showLatestProjectRootMemory();
+    const template = buildPreviewTemplateFromProjectRootMemory(memory);
+    writePreviewApply(template);
+    await navigator.clipboard.writeText(template);
+    writeStatus('SAFE_CHANGE_PREVIEW template copied from project root memory. Review before sending.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
+  }
+});
+
+clearProjectRootMemory.addEventListener('click', async () => {
+  try {
+    await removeStorageValue(PROJECT_ROOT_MEMORY_KEY);
+    const memory = buildProjectRootMemory([], []);
+    writeProjectRootMemory(formatProjectRootMemory(memory));
+    writeStatus('Project root memory cleared.');
+  } catch (error) {
+    writeStatus(`ERROR: ${error.message}`);
   }
 });
 

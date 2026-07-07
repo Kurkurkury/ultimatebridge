@@ -2,10 +2,13 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const child = spawnSync('npm', ['run', 'diagnose:local'], {
+const npmCommand = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
+const npmArgs = process.platform === 'win32' ? ['/d', '/s', '/c', 'npm run diagnose:local'] : ['run', 'diagnose:local'];
+
+const child = spawnSync(npmCommand, npmArgs, {
   cwd: process.cwd(),
   encoding: 'utf8',
-  shell: process.platform === 'win32',
+  shell: false,
   maxBuffer: 1024 * 1024 * 8
 });
 
@@ -28,6 +31,7 @@ const checks = {
   hasNativeHost: report.fileChecks.some((item) => item.filePath === 'native-host/src/host.mjs' && item.exists),
   hasPopupWorkflow: report.featureChecks.some((item) => item.name === 'popupHasProjectWorkflowPanel' && item.ok),
   hasWorkflowSmokeInVerify: report.featureChecks.some((item) => item.name === 'verifyIncludesProjectWorkflowSmoke' && item.ok),
+  hasDiagnosticsSmokeInVerify: report.featureChecks.some((item) => item.name === 'verifyIncludesLocalDiagnosticsSmoke' && item.ok),
   failedCountZero: report.failedCount === 0
 };
 

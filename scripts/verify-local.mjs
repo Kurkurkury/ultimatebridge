@@ -10,6 +10,7 @@ const markdownPath = path.join(artifactDir, 'latest.md');
 
 const npmScripts = [
   'test',
+  'smoke:real-project-dogfood-run',
   'smoke:local-status-dashboard',
   'smoke:extension-load-reload-guide',
   'smoke:native-host-install-rehearsal',

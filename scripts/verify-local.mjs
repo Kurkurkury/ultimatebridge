@@ -8,44 +8,47 @@ const artifactDir = path.resolve('artifacts', 'local-verification');
 const jsonPath = path.join(artifactDir, 'latest.json');
 const markdownPath = path.join(artifactDir, 'latest.md');
 
-const commands = [
-  ['npm', ['test']],
-  ['npm', ['run', 'smoke:extension-load-reload-guide']],
-  ['npm', ['run', 'smoke:native-host-install-rehearsal']],
-  ['npm', ['run', 'smoke:browser-native-connection-diagnostics']],
-  ['npm', ['run', 'smoke:native-host-extension-id-helper']],
-  ['npm', ['run', 'smoke:installer-launcher']],
-  ['npm', ['run', 'smoke:final-docs-freeze']],
-  ['npm', ['run', 'smoke:local-diagnostics']],
-  ['npm', ['run', 'smoke:browser-project-workflow-panel']],
-  ['npm', ['run', 'smoke:browser-template-selection-ui']],
-  ['npm', ['run', 'smoke:browser-root-aware-popup-wiring']],
-  ['npm', ['run', 'smoke:browser-root-aware-command-templates']],
-  ['npm', ['run', 'smoke:browser-project-root-labels']],
-  ['npm', ['run', 'smoke:browser-project-root-memory']],
-  ['npm', ['run', 'smoke:browser-command-templates']],
-  ['npm', ['run', 'smoke:browser-session-summary']],
-  ['npm', ['run', 'smoke:browser-final-review-checklist']],
-  ['npm', ['run', 'smoke:browser-artifact-open-plan']],
-  ['npm', ['run', 'smoke:browser-diff-viewer']],
-  ['npm', ['run', 'smoke:browser-roundtrip-panel']],
-  ['npm', ['run', 'smoke:full-browser-roundtrip']],
-  ['npm', ['run', 'smoke:manual-send-guard']],
-  ['npm', ['run', 'smoke:browser-apply-injection']],
-  ['npm', ['run', 'smoke:browser-safe-change-builder']],
-  ['npm', ['run', 'smoke:extension-preview-ui']],
-  ['npm', ['run', 'smoke:preview-apply']],
-  ['npm', ['run', 'smoke:preview-diff']],
-  ['npm', ['run', 'smoke:rollback']],
-  ['npm', ['run', 'smoke:project-roots']],
-  ['npm', ['run', 'smoke:safe-change']],
-  ['npm', ['run', 'smoke:readonly']],
-  ['npm', ['run', 'smoke:delivery']],
-  ['npm', ['run', 'smoke:extension-queue']],
-  ['npm', ['run', 'smoke:confirmed-plan']],
-  ['npm', ['run', 'e2e:native']],
-  [process.platform === 'win32' ? 'pwsh' : 'pwsh', ['-NoProfile', '-File', 'scripts/check-powershell.ps1']]
+const npmScripts = [
+  'test',
+  'smoke:local-status-dashboard',
+  'smoke:extension-load-reload-guide',
+  'smoke:native-host-install-rehearsal',
+  'smoke:browser-native-connection-diagnostics',
+  'smoke:native-host-extension-id-helper',
+  'smoke:installer-launcher',
+  'smoke:final-docs-freeze',
+  'smoke:local-diagnostics',
+  'smoke:browser-project-workflow-panel',
+  'smoke:browser-template-selection-ui',
+  'smoke:browser-root-aware-popup-wiring',
+  'smoke:browser-root-aware-command-templates',
+  'smoke:browser-project-root-labels',
+  'smoke:browser-project-root-memory',
+  'smoke:browser-command-templates',
+  'smoke:browser-session-summary',
+  'smoke:browser-final-review-checklist',
+  'smoke:browser-artifact-open-plan',
+  'smoke:browser-diff-viewer',
+  'smoke:browser-roundtrip-panel',
+  'smoke:full-browser-roundtrip',
+  'smoke:manual-send-guard',
+  'smoke:browser-apply-injection',
+  'smoke:browser-safe-change-builder',
+  'smoke:extension-preview-ui',
+  'smoke:preview-apply',
+  'smoke:preview-diff',
+  'smoke:rollback',
+  'smoke:project-roots',
+  'smoke:safe-change',
+  'smoke:readonly',
+  'smoke:delivery',
+  'smoke:extension-queue',
+  'smoke:confirmed-plan',
+  'e2e:native'
 ];
+
+const commands = npmScripts.map((script) => script === 'test' ? ['npm', ['test']] : ['npm', ['run', script]]);
+commands.push(['pwsh', ['-NoProfile', '-File', 'scripts/check-powershell.ps1']]);
 
 fs.mkdirSync(artifactDir, { recursive: true });
 
@@ -76,13 +79,9 @@ for (const [command, args] of commands) {
     stderrTail: tail(child.stderr ?? '', 80)
   };
   results.push(result);
-
   if (child.stdout) process.stdout.write(child.stdout);
   if (child.stderr) process.stderr.write(child.stderr);
   console.log(`[verify:local] ${result.ok ? 'PASS' : 'FAIL'} ${label} (${result.durationMs}ms)`);
-
-  writeReports({ status: result.ok ? status : 'FAIL', failure: result.ok ? failure : result, results });
-
   if (!result.ok) {
     status = 'FAIL';
     failure = result;
@@ -138,36 +137,18 @@ function formatMarkdown(report) {
     `failed=${report.failed}`,
     ''
   ];
-
   if (report.failure) {
-    lines.push('## Failure', '');
-    lines.push(`label=${report.failure.label}`);
-    lines.push(`exitCode=${report.failure.exitCode}`);
-    lines.push('');
+    lines.push('## Failure', '', `label=${report.failure.label}`, `exitCode=${report.failure.exitCode}`, '');
   }
-
   lines.push('## Checks', '');
-  for (const result of report.results) {
-    lines.push(`- ${result.ok ? 'PASS' : 'FAIL'} ${result.label} (${result.durationMs}ms)`);
-  }
-  lines.push('');
-
-  if (report.failure?.stderrTail) {
-    lines.push('## Failure stderr tail', '', '```text', report.failure.stderrTail, '```', '');
-  }
-  if (report.failure?.stdoutTail) {
-    lines.push('## Failure stdout tail', '', '```text', report.failure.stdoutTail, '```', '');
-  }
-
-  lines.push('## PR comment summary', '');
-  lines.push('```text');
+  for (const result of report.results) lines.push(`- ${result.ok ? 'PASS' : 'FAIL'} ${result.label} (${result.durationMs}ms)`);
+  lines.push('', '## PR comment summary', '', '```text');
   lines.push(`Local verification: ${report.status}`);
   lines.push(`passed=${report.passed}`);
   lines.push(`failed=${report.failed}`);
   lines.push(`durationMs=${report.durationMs}`);
   if (report.failure) lines.push(`failure=${report.failure.label}`);
-  lines.push('```');
-  lines.push('');
+  lines.push('```', '');
   return lines.join('\n');
 }
 

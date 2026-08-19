@@ -60,7 +60,13 @@
     "diagnose:local": "node scripts/diagnose-local.mjs",
     "verify:local": "node scripts/verify-local.mjs",
     "e2e:native": "node scripts/e2e-native-message.mjs",
+    "mcp:start": "node mcp/server.mjs",
     "ci": "npm run check:schemas && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.0.0"
   },
   "engines": {
     "node": ">=20"
